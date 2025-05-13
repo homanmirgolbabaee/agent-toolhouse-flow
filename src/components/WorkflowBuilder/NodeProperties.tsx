@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface NodePropertiesProps {
   node: any | null;
@@ -42,7 +42,6 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
     
     // Update the node data
     const updatedData = { ...node.data, config: { ...node.data.config, ...newFormValues } };
-    console.log("Updating node data:", updatedData);
     onUpdateNode(node.id, updatedData);
   };
 
@@ -76,10 +75,13 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
     if (node.data.type === 'outputNode') {
       return (
         <>
-          {node.data.output ? (
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="output">Output</Label>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="output">Output</Label>
+              <div className="flex items-center gap-2">
+                {node.data.isProcessing && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
                 <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -88,19 +90,27 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="rounded border bg-muted p-3 mt-2">
-                      <pre className="text-xs whitespace-pre-wrap break-words">
-                        {typeof node.data.output === 'string' ? node.data.output : JSON.stringify(node.data.output, null, 2)}
-                      </pre>
+                      {node.data.isProcessing ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <span className="text-xs">Processing...</span>
+                        </div>
+                      ) : (
+                        <pre className="text-xs whitespace-pre-wrap break-words">
+                          {typeof node.data.output === 'string' ? node.data.output : JSON.stringify(node.data.output, null, 2)}
+                        </pre>
+                      )}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
               </div>
             </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">
-              No output data yet. Run the workflow to generate output.
-            </div>
-          )}
+            {!node.data.output && !node.data.isProcessing && (
+              <div className="text-sm text-muted-foreground">
+                No output data yet. Run the workflow to generate output.
+              </div>
+            )}
+          </div>
         </>
       );
     }

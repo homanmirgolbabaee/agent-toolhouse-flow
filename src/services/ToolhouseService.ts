@@ -1,18 +1,25 @@
 
 import { Toolhouse } from "@toolhouseai/sdk";
+import OpenAI from "openai";
 
 class ToolhouseService {
   private toolhouse: any;
+  private openai: OpenAI | null = null;
   private initialized = false;
   private tools: any[] = [];
 
-  async initialize(apiKey: string, metadata = {}) {
+  async initialize(toolhouseApiKey: string, openaiApiKey: string, metadata = {}) {
     try {
       console.log('Initializing Toolhouse service');
       this.toolhouse = new Toolhouse({
-        apiKey,
+        apiKey: toolhouseApiKey,
         metadata
       });
+
+      this.openai = new OpenAI({
+        apiKey: openaiApiKey,
+      });
+
       this.initialized = true;
       console.log('Toolhouse service initialized');
       
@@ -63,25 +70,50 @@ class ToolhouseService {
     }
   }
 
-  // Helper method for our example to simplify the workflow process
+  // Method to process a workflow with actual API calls
   async processToolhouseWorkflow(prompt: string, model: string = "gpt-4o-mini") {
-    if (!this.initialized) {
-      console.warn('Toolhouse not initialized');
-      return "Error: Toolhouse not initialized";
+    if (!this.initialized || !this.openai) {
+      console.warn('Toolhouse or OpenAI not initialized');
+      return "Error: Toolhouse or OpenAI not initialized";
     }
 
     try {
-      // In a real implementation, this would call OpenAI and Toolhouse
-      // Since we're just simulating in the frontend, we'll return a mock response
-      // with the actual prompt value to demonstrate it's updating
-      
       console.log(`Processing prompt: "${prompt}" with model: ${model}`);
       
-      // Mock a delay to simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Create initial messages array
+      const messages = [{
+        role: "user",
+        content: prompt
+      }];
       
-      // Include the prompt in the response to show it's updating
-      return `Based on your prompt: "${prompt}"\n\n• Toolhouse is an AI tool orchestration platform\n• It allows developers to create powerful AI agents\n• The platform provides tools that can be integrated with LLMs\n• It supports various models including OpenAI's GPT series\n• Toolhouse offers both cloud-hosted and local execution options`;
+      // Get tools from Toolhouse
+      const tools = await this.getTools();
+      
+      // First OpenAI call with tools
+      console.log("Making first OpenAI call with tools...");
+      const chatCompletion = await this.openai.chat.completions.create({
+        messages,
+        model,
+        tools
+      });
+      
+      // Run tools on the response
+      console.log("Running tools on OpenAI response...");
+      const openAiMessage = await this.runTools(chatCompletion);
+      
+      // Second OpenAI call with tool results
+      console.log("Making second OpenAI call with tool results...");
+      const newMessages = [...messages, ...openAiMessage];
+      const chatCompleted = await this.openai.chat.completions.create({
+        messages: newMessages,
+        model,
+        tools
+      });
+      
+      // Extract the final response
+      console.log("Processing complete");
+      const finalResponse = chatCompleted.choices[0].message.content;
+      return finalResponse;
     } catch (error) {
       console.error('Error in Toolhouse workflow:', error);
       return `Error processing workflow: ${error instanceof Error ? error.message : String(error)}`;
