@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   Background,
@@ -119,6 +118,7 @@ const WorkflowBuilder: React.FC = () => {
 
   const updateNode = useCallback(
     (nodeId: string, data: any) => {
+      console.log("Updating node:", nodeId, data);
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === nodeId) {
@@ -210,67 +210,18 @@ const WorkflowBuilder: React.FC = () => {
       
       // Process this input-output pair
       try {
-        addLog(`Processing input: "${inputNode.data.config.prompt.substring(0, 30)}..."`);
-        
-        // Following the Toolhouse quickstart example
+        // Get the latest prompt and model from the input node
         const prompt = inputNode.data.config.prompt;
         const model = inputNode.data.config.model || 'gpt-4o-mini';
         
-        addLog(`Getting tools from Toolhouse...`);
-        const tools = await toolhouseService.getTools();
+        addLog(`Processing input: "${prompt.substring(0, 30)}..."`);
         
-        // This is a simulation of the API call since we're in a front-end only environment
-        // In a real app, you'd make the actual API call to OpenAI with the Toolhouse tools
+        // Get actual response from the toolhouse service using the current prompt value
+        const response = await toolhouseService.processToolhouseWorkflow(prompt, model);
         
-        addLog(`Simulating LLM call with model: ${model}`);
-        // Mock OpenAI response with tool calls
-        const mockLLMResponse = {
-          id: "chatcmpl-" + Math.random().toString(36).substring(2, 10),
-          object: "chat.completion",
-          created: Date.now(),
-          model: model,
-          choices: [{
-            index: 0,
-            message: {
-              role: "assistant",
-              content: null,
-              tool_calls: [
-                {
-                  id: "call_" + Math.random().toString(36).substring(2, 10),
-                  type: "function",
-                  function: {
-                    name: "get_page_contents",
-                    arguments: JSON.stringify({
-                      url: "https://toolhouse.ai"
-                    })
-                  }
-                }
-              ]
-            },
-            finish_reason: "tool_calls"
-          }]
-        };
-        
-        addLog(`Running Toolhouse tools...`);
-        // Mock toolhouse.runTools response
-        const mockToolhouseResponse = [
-          {
-            role: "tool",
-            content: "<!DOCTYPE html><html><body><h1>Toolhouse.ai</h1><p>A powerful tool orchestration platform for AI agents.</p></body></html>",
-            tool_call_id: mockLLMResponse.choices[0].message.tool_calls[0].id
-          },
-          {
-            role: "assistant",
-            content: "Here's a summary of Toolhouse.ai:\n\n• Toolhouse is an AI tool orchestration platform\n• It allows developers to create powerful AI agents\n• The platform provides tools that can be integrated with LLMs\n• It supports various models including OpenAI's GPT series\n• Toolhouse offers both cloud-hosted and local execution options"
-          }
-        ];
-        
-        // Update the output node with the result
         addLog(`Workflow execution completed successfully`);
         
         // Update the output node with the response
-        const finalOutput = mockToolhouseResponse[mockToolhouseResponse.length - 1].content;
-        
         setNodes((nds) =>
           nds.map((node) => {
             if (node.id === outputNode.id) {
@@ -278,7 +229,7 @@ const WorkflowBuilder: React.FC = () => {
                 ...node, 
                 data: { 
                   ...node.data, 
-                  output: finalOutput
+                  output: response
                 } 
               };
             }

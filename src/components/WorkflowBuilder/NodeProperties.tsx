@@ -15,7 +15,7 @@ interface NodePropertiesProps {
 
 const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     if (node) {
@@ -42,6 +42,7 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
     
     // Update the node data
     const updatedData = { ...node.data, config: { ...node.data.config, ...newFormValues } };
+    console.log("Updating node data:", updatedData);
     onUpdateNode(node.id, updatedData);
   };
 
@@ -53,7 +54,7 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
             <Label htmlFor="prompt">Prompt</Label>
             <Textarea 
               id="prompt" 
-              defaultValue={node.data.config?.prompt || ''} 
+              value={formValues.prompt || ''}
               onChange={(e) => handleChange('prompt', e.target.value)}
               placeholder="Enter your prompt here..."
               className="min-h-[120px]"
@@ -63,7 +64,7 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
             <Label htmlFor="model">Model</Label>
             <Input 
               id="model" 
-              defaultValue={node.data.config?.model || 'gpt-4o-mini'} 
+              value={formValues.model || 'gpt-4o-mini'}
               onChange={(e) => handleChange('model', e.target.value)}
             />
             <p className="text-xs text-muted-foreground">Model to use for processing</p>
