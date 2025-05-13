@@ -1,12 +1,14 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageSquare, Code } from 'lucide-react';
 
 interface NodeType {
   type: string;
   label: string;
   category: string;
   description: string;
+  icon: React.ReactNode;
 }
 
 interface NodePanelProps {
@@ -16,27 +18,17 @@ interface NodePanelProps {
 const NODE_TYPES: NodeType[] = [
   {
     type: 'toolhouseInput',
-    label: 'User Input',
+    label: 'Input',
     category: 'Input',
-    description: 'Provide user input to the workflow'
-  },
-  {
-    type: 'toolhouseTool',
-    label: 'Toolhouse Tool',
-    category: 'Tools',
-    description: 'Execute a Toolhouse tool'
-  },
-  {
-    type: 'llmNode',
-    label: 'LLM',
-    category: 'AI',
-    description: 'Large Language Model processing'
+    description: 'Provide user input to the workflow',
+    icon: <MessageSquare className="h-4 w-4" />
   },
   {
     type: 'outputNode',
     label: 'Output',
     category: 'Output',
-    description: 'Display output of the workflow'
+    description: 'Display output of the workflow',
+    icon: <Code className="h-4 w-4" />
   }
 ];
 
@@ -47,15 +39,21 @@ const NodePanel: React.FC<NodePanelProps> = ({ onDragStart }) => {
         <CardTitle className="text-sm">Components</CardTitle>
       </CardHeader>
       <CardContent className="p-3 grid gap-2">
+        <p className="text-xs text-muted-foreground mb-2">
+          Drag and drop components to build your workflow:
+        </p>
         {NODE_TYPES.map((nodeType) => (
           <div
             key={nodeType.type}
-            className="p-2 border rounded bg-background cursor-grab hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="p-3 border rounded bg-background cursor-grab hover:bg-accent hover:text-accent-foreground transition-colors"
             draggable
             onDragStart={(event) => onDragStart(event, nodeType.type)}
           >
-            <div className="font-medium text-xs">{nodeType.label}</div>
-            <div className="text-xs text-muted-foreground">{nodeType.category}</div>
+            <div className="font-medium text-sm flex items-center gap-2">
+              {nodeType.icon}
+              {nodeType.label}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">{nodeType.description}</div>
           </div>
         ))}
       </CardContent>

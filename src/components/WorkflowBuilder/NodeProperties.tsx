@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface NodePropertiesProps {
   node: any | null;
@@ -13,6 +15,13 @@ interface NodePropertiesProps {
 
 const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (node) {
+      setFormValues(node.data.config || {});
+    }
+  }, [node]);
 
   if (!node) {
     return (
@@ -37,63 +46,60 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
   };
 
   const renderFields = () => {
-    if (node.type === 'toolhouseInput') {
+    if (node.data.type === 'toolhouseInput') {
       return (
         <>
           <div className="space-y-2">
             <Label htmlFor="prompt">Prompt</Label>
-            <Input 
+            <Textarea 
               id="prompt" 
               defaultValue={node.data.config?.prompt || ''} 
               onChange={(e) => handleChange('prompt', e.target.value)}
-            />
-          </div>
-        </>
-      );
-    }
-    
-    if (node.type === 'toolhouseTool') {
-      return (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="toolName">Tool Name</Label>
-            <Input 
-              id="toolName" 
-              defaultValue={node.data.config?.toolName || ''} 
-              onChange={(e) => handleChange('toolName', e.target.value)}
+              placeholder="Enter your prompt here..."
+              className="min-h-[120px]"
             />
           </div>
           <div className="space-y-2 mt-4">
-            <Label htmlFor="params">Parameters (JSON)</Label>
-            <Input 
-              id="params" 
-              defaultValue={node.data.config?.params || '{}'} 
-              onChange={(e) => handleChange('params', e.target.value)}
-            />
-          </div>
-        </>
-      );
-    }
-    
-    if (node.type === 'llmNode') {
-      return (
-        <>
-          <div className="space-y-2">
             <Label htmlFor="model">Model</Label>
             <Input 
               id="model" 
               defaultValue={node.data.config?.model || 'gpt-4o-mini'} 
               onChange={(e) => handleChange('model', e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">Model to use for processing</p>
           </div>
-          <div className="flex items-center space-x-2 mt-4">
-            <Checkbox 
-              id="useTools" 
-              defaultChecked={node.data.config?.useTools || true}
-              onCheckedChange={(checked) => handleChange('useTools', checked)}
-            />
-            <label htmlFor="useTools" className="text-sm">Use Toolhouse Tools</label>
-          </div>
+        </>
+      );
+    }
+    
+    if (node.data.type === 'outputNode') {
+      return (
+        <>
+          {node.data.output ? (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="output">Output</Label>
+                <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      {isOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="rounded border bg-muted p-3 mt-2">
+                      <pre className="text-xs whitespace-pre-wrap break-words">
+                        {typeof node.data.output === 'string' ? node.data.output : JSON.stringify(node.data.output, null, 2)}
+                      </pre>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No output data yet. Run the workflow to generate output.
+            </div>
+          )}
         </>
       );
     }
@@ -108,15 +114,6 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
       </CardHeader>
       <CardContent className="p-4">
         {renderFields()}
-        <div className="mt-4">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="w-full"
-          >
-            Apply Changes
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
