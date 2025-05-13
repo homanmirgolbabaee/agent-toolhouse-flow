@@ -80,9 +80,9 @@ class ToolhouseService {
     try {
       console.log(`Processing prompt: "${prompt}" with model: ${model}`);
       
-      // Create initial messages array
-      const messages = [{
-        role: "user",
+      // Create initial messages array with the correct type
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{
+        role: "user" as const,
         content: prompt
       }];
       
@@ -99,7 +99,7 @@ class ToolhouseService {
       
       // Run tools on the response
       console.log("Running tools on OpenAI response...");
-      const openAiMessage = await this.runTools(chatCompletion);
+      const openAiMessage = await this.runTools(chatCompletion) as OpenAI.Chat.Completions.ChatCompletionMessageParam[];
       
       // Second OpenAI call with tool results
       console.log("Making second OpenAI call with tool results...");
