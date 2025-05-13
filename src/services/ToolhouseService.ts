@@ -16,8 +16,10 @@ class ToolhouseService {
         metadata
       });
 
+      // Add the dangerouslyAllowBrowser flag to allow browser usage
       this.openai = new OpenAI({
         apiKey: openaiApiKey,
+        dangerouslyAllowBrowser: true // Added this flag to enable browser usage
       });
 
       this.initialized = true;
