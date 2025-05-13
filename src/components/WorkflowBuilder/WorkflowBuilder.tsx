@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   Background,
@@ -20,7 +19,7 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Link } from 'lucide-react';
+import { Play, Link, Zap, Sparkles, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { toast } from 'sonner';
@@ -47,7 +46,8 @@ const WorkflowBuilder: React.FC = () => {
     (params: Connection) => setEdges((eds) => addEdge({
       ...params,
       type: 'smoothstep',
-      animated: true
+      animated: true,
+      style: { stroke: '#3b82f6', strokeWidth: 2 }
     }, eds)),
     [setEdges]
   );
@@ -68,7 +68,6 @@ const WorkflowBuilder: React.FC = () => {
       const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
       const type = event.dataTransfer.getData('application/reactflow');
 
-      // Check if the dropped element is valid
       if (typeof type === 'undefined' || !type) {
         return;
       }
@@ -79,7 +78,6 @@ const WorkflowBuilder: React.FC = () => {
           y: event.clientY - reactFlowBounds.top,
         });
 
-        // Create a new node
         const newNode = {
           id: `${type}_${Date.now()}`,
           type: 'customNode',
@@ -100,7 +98,10 @@ const WorkflowBuilder: React.FC = () => {
   const getDefaultConfig = (type: string) => {
     switch(type) {
       case 'toolhouseInput':
-        return { prompt: "Get the contents of https://toolhouse.ai and summarize them in a few bullet points.", model: "gpt-4o-mini" };
+        return { 
+          prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.", 
+          model: "gpt-4o-mini" 
+        };
       default:
         return {};
     }
@@ -124,7 +125,6 @@ const WorkflowBuilder: React.FC = () => {
 
   const updateNode = useCallback(
     (nodeId: string, data: any) => {
-      console.log("Updating node:", nodeId, data);
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === nodeId) {
@@ -142,12 +142,10 @@ const WorkflowBuilder: React.FC = () => {
     setLogs((prevLogs) => [`[${timestamp}] ${message}`, ...prevLogs]);
   };
 
-  // Find nodes by type
   const findNodesByType = (type: string) => {
     return nodes.filter(node => node.data.type === type);
   };
 
-  // Get connected nodes
   const getConnectedNodes = (nodeId: string, direction: 'source' | 'target') => {
     const connectedEdges = edges.filter(edge => 
       direction === 'source' ? edge.source === nodeId : edge.target === nodeId
@@ -160,7 +158,6 @@ const WorkflowBuilder: React.FC = () => {
   };
 
   const initializeToolhouse = async () => {
-    // Validate API keys
     if (!toolhouseApiKey) {
       uiToast({
         title: "API Key Required",
@@ -172,23 +169,23 @@ const WorkflowBuilder: React.FC = () => {
     
     if (!openaiApiKey) {
       uiToast({
-        title: "API Key Required",
+        title: "API Key Required",  
         description: "Please enter an OpenAI API key",
         variant: "destructive"
       });
       return false;
     }
     
-    addLog('Initializing Toolhouse and OpenAI...');
+    addLog('🔧 Initializing Toolhouse and OpenAI...');
     const success = await toolhouseService.initialize(toolhouseApiKey, openaiApiKey, { id: 'workflow-builder' });
     
     if (success) {
-      addLog('Toolhouse and OpenAI initialized successfully');
+      addLog('✅ Toolhouse and OpenAI initialized successfully');
       const tools = await toolhouseService.getTools();
-      addLog(`Retrieved ${tools.length} tools`);
+      addLog(`🛠️ Retrieved ${tools.length} available tools`);
       return true;
     } else {
-      addLog('Failed to initialize Toolhouse or OpenAI');
+      addLog('❌ Failed to initialize Toolhouse or OpenAI');
       uiToast({
         title: "Initialization Failed",
         description: "Failed to initialize API clients. Check your API keys and try again.",
@@ -211,14 +208,13 @@ const WorkflowBuilder: React.FC = () => {
         }
       }
       
-      addLog('Running workflow...');
+      addLog('🚀 Running workflow...');
       
-      // Find input and output nodes
       const inputNodes = findNodesByType('toolhouseInput');
       const outputNodes = findNodesByType('outputNode');
       
       if (inputNodes.length === 0) {
-        addLog('Error: No input node found in the workflow');
+        addLog('❌ Error: No input node found in the workflow');
         uiToast({
           title: "Missing Input",
           description: "No input node found in the workflow",
@@ -229,7 +225,7 @@ const WorkflowBuilder: React.FC = () => {
       }
       
       if (outputNodes.length === 0) {
-        addLog('Error: No output node found in the workflow');
+        addLog('❌ Error: No output node found in the workflow');
         uiToast({
           title: "Missing Output",
           description: "No output node found in the workflow",
@@ -239,13 +235,12 @@ const WorkflowBuilder: React.FC = () => {
         return;
       }
       
-      // Check if input and output are connected
       for (const inputNode of inputNodes) {
         const connectedOutputs = getConnectedNodes(inputNode.id, 'source');
         const outputNode = connectedOutputs.find(node => node.data.type === 'outputNode');
         
         if (!outputNode) {
-          addLog(`Error: Input node "${inputNode.data.label}" is not connected to an output node`);
+          addLog(`❌ Error: Input node "${inputNode.data.label}" is not connected to an output node`);
           uiToast({
             title: "Connection Error",
             description: "Input node is not connected to an output node",
@@ -254,13 +249,11 @@ const WorkflowBuilder: React.FC = () => {
           continue;
         }
         
-        // Process this input-output pair
         try {
-          // Get the latest prompt and model from the input node
           const prompt = inputNode.data.config.prompt;
           const model = inputNode.data.config.model || 'gpt-4o-mini';
           
-          addLog(`Processing input: "${prompt.substring(0, 30)}..."`);
+          addLog(`⚡ Processing input: "${prompt.substring(0, 50)}..."`);
           
           // Update output node to show processing state
           setNodes((nds) =>
@@ -270,7 +263,7 @@ const WorkflowBuilder: React.FC = () => {
                   ...node, 
                   data: { 
                     ...node.data, 
-                    output: "Processing...",
+                    output: "🔄 Processing...",
                     isProcessing: true
                   } 
                 };
@@ -279,12 +272,12 @@ const WorkflowBuilder: React.FC = () => {
             })
           );
           
-          // Get actual response from the toolhouse service using the current prompt value
+          // Get response from Toolhouse service
           const response = await toolhouseService.processToolhouseWorkflow(prompt, model);
           
-          addLog(`Workflow execution completed successfully`);
+          addLog(`✅ Workflow execution completed successfully`);
           
-          // Update the output node with the response
+          // Update the output node with the formatted response
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -301,9 +294,14 @@ const WorkflowBuilder: React.FC = () => {
             })
           );
           
+          uiToast({
+            title: "Workflow Complete",
+            description: "Successfully executed workflow with Toolhouse",
+          });
+          
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          addLog(`Error running workflow: ${errorMessage}`);
+          addLog(`❌ Error running workflow: ${errorMessage}`);
           
           // Update output node to show error
           setNodes((nds) =>
@@ -313,7 +311,7 @@ const WorkflowBuilder: React.FC = () => {
                   ...node, 
                   data: { 
                     ...node.data, 
-                    output: `Error: ${errorMessage}`,
+                    output: `❌ Error: ${errorMessage}`,
                     isProcessing: false
                   } 
                 };
@@ -340,12 +338,12 @@ const WorkflowBuilder: React.FC = () => {
       const inputNode = {
         id: `toolhouseInput_${Date.now()}`,
         type: 'customNode',
-        position: { x: 250, y: 150 },
+        position: { x: 200, y: 150 },
         data: { 
           label: 'Input',
           type: 'toolhouseInput',
           config: { 
-            prompt: "Get the contents of https://toolhouse.ai and summarize them in a few bullet points.",
+            prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.",
             model: "gpt-4o-mini"
           }
         },
@@ -354,7 +352,7 @@ const WorkflowBuilder: React.FC = () => {
       const outputNode = {
         id: `outputNode_${Date.now()}`,
         type: 'customNode',
-        position: { x: 250, y: 300 },
+        position: { x: 200, y: 350 },
         data: { 
           label: 'Output',
           type: 'outputNode',
@@ -370,7 +368,8 @@ const WorkflowBuilder: React.FC = () => {
         source: inputNode.id,
         target: outputNode.id,
         type: 'smoothstep',
-        animated: true
+        animated: true,
+        style: { stroke: '#3b82f6', strokeWidth: 2 }
       };
       
       setEdges([newEdge]);
@@ -378,37 +377,67 @@ const WorkflowBuilder: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b p-2 flex justify-between items-center bg-background">
-        <h1 className="text-xl font-bold">Toolhouse Workflow Builder</h1>
-        <div className="flex items-center gap-2">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <div className="border-b bg-white/80 backdrop-blur-sm p-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+            <Sparkles className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Toolhouse Workflow Builder
+            </h1>
+            <p className="text-sm text-slate-600">Visual AI workflow editor powered by Toolhouse</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               type="password"
               placeholder="Toolhouse API Key"
-              className="px-3 py-1 text-sm border rounded w-48 sm:w-64"
+              className="px-3 py-2 text-sm border rounded-lg w-48 sm:w-64 bg-white"
               value={toolhouseApiKey}
               onChange={(e) => setToolhouseApiKey(e.target.value)}
             />
             <Input
               type="password"
               placeholder="OpenAI API Key"
-              className="px-3 py-1 text-sm border rounded w-48 sm:w-64"
+              className="px-3 py-2 text-sm border rounded-lg w-48 sm:w-64 bg-white"
               value={openaiApiKey}
               onChange={(e) => setOpenaiApiKey(e.target.value)}
             />
           </div>
-          <Button onClick={runWorkflow} size="sm" disabled={isProcessing}>
-            <Play className="h-4 w-4 mr-2" /> {isProcessing ? 'Processing...' : 'Run Workflow'}
+          <Button 
+            onClick={runWorkflow} 
+            size="sm" 
+            disabled={isProcessing}
+            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          >
+            {isProcessing ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                Run Workflow
+              </>
+            )}
           </Button>
         </div>
       </div>
+
       <div className="flex-1 flex">
-        <div className="w-64 border-r bg-muted/30 p-2">
+        {/* Left Sidebar - Node Panel */}
+        <div className="w-64 border-r bg-white/50 backdrop-blur-sm p-3">
           <NodePanel onDragStart={onDragStart} />
         </div>
+
+        {/* Main Canvas */}
         <div className="flex-1 flex flex-col">
-          <div ref={reactFlowWrapper} className="flex-1">
+          <div ref={reactFlowWrapper} className="flex-1 relative">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -422,25 +451,34 @@ const WorkflowBuilder: React.FC = () => {
               nodeTypes={nodeTypes}
               connectionLineType={ConnectionLineType.SmoothStep}
               fitView
+              className="bg-slate-50"
             >
-              <Controls />
-              <Background />
-              <MiniMap />
-              <Panel position="bottom-center" className="bg-background/80 p-2 rounded shadow">
-                <div className="text-xs flex items-center gap-2">
+              <Controls className="bg-white border shadow-sm" />
+              <Background color="#e2e8f0" gap={20} />
+              <MiniMap className="bg-white border shadow-sm" />
+              <Panel position="bottom-center" className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-sm border">
+                <div className="text-xs flex items-center gap-2 text-slate-600">
                   <Link className="h-4 w-4" /> 
-                  Connect input to output to create a workflow
+                  <span>Connect input to output to create a workflow</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
+                    Powered by Toolhouse
+                  </span>
                 </div>
               </Panel>
             </ReactFlow>
           </div>
+          
+          {/* Debug Panel */}
           <DebugPanel 
             logs={logs} 
             expanded={debugExpanded}
             onToggleExpand={() => setDebugExpanded(!debugExpanded)} 
           />
         </div>
-        <div className="w-64 border-l bg-muted/30 p-2">
+
+        {/* Right Sidebar - Properties Panel */}
+        <div className="w-64 border-l bg-white/50 backdrop-blur-sm p-3">
           <NodeProperties node={selectedNode} onUpdateNode={updateNode} />
         </div>
       </div>
