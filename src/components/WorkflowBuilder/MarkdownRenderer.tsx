@@ -1,189 +1,162 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Eye, EyeOff, RefreshCw, Copy, CheckCircle, Sparkles, Code, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import MarkdownRenderer from './MarkdownRenderer';
+import React from 'react';
 
-interface NodePropertiesProps {
-  node: any | null;
-  onUpdateNode: (nodeId: string, data: any) => void;
+interface MarkdownRendererProps {
+  content: string;
+  className?: string;
 }
 
-const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) => {
-  const [formValues, setFormValues] = useState<Record<string, any>>({});
-  const [isOpen, setIsOpen] = useState(true);
-  const [isCopied, setIsCopied] = useState(false);
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = "" }) => {
+  // Simple markdown parser for basic formatting
+  const parseMarkdown = (text: string) => {
+    // Split into lines for better processing
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let inCodeBlock = false;
+    let codeContent: string[] = [];
+    let listItems: string[] = [];
+    let inList = false;
 
-  useEffect(() => {
-    if (node) {
-      setFormValues(node.data.config || {});
+    lines.forEach((line, index) => {
+      // Handle code blocks
+      if (line.trim().startsWith('```')) {
+        if (inCodeBlock) {
+          // End of code block
+          elements.push(
+            <div key={index} className="my-3">
+              <pre className="bg-slate-50 border rounded-lg p-3 overflow-x-auto">
+                <code className="text-sm font-mono text-slate-800">
+                  {codeContent.join('\n')}
+                </code>
+              </pre>
+            </div>
+          );
+          codeContent = [];
+          inCodeBlock = false;
+        } else {
+          // Start of code block
+          inCodeBlock = true;
+        }
+        return;
+      }
+
+      if (inCodeBlock) {
+        codeContent.push(line);
+        return;
+      }
+
+      // Handle headers
+      if (line.startsWith('###')) {
+        if (inList) {
+          elements.push(renderList(listItems, index));
+          listItems = [];
+          inList = false;
+        }
+        elements.push(
+          <h3 key={index} className="text-base font-semibold text-slate-800 mb-2 mt-3">
+            {line.replace(/^###\s*/, '')}
+          </h3>
+        );
+        return;
+      }
+
+      if (line.startsWith('##')) {
+        if (inList) {
+          elements.push(renderList(listItems, index));
+          listItems = [];
+          inList = false;
+        }
+        elements.push(
+          <h2 key={index} className="text-lg font-semibold text-slate-800 mb-2 mt-4">
+            {line.replace(/^##\s*/, '')}
+          </h2>
+        );
+        return;
+      }
+
+      if (line.startsWith('#')) {
+        if (inList) {
+          elements.push(renderList(listItems, index));
+          listItems = [];
+          inList = false;
+        }
+        elements.push(
+          <h1 key={index} className="text-xl font-bold text-slate-900 mb-3 mt-4">
+            {line.replace(/^#\s*/, '')}
+          </h1>
+        );
+        return;
+      }
+
+      // Handle list items
+      if (line.match(/^\s*[-*•]\s/) || line.match(/^\s*\d+\.\s/)) {
+        inList = true;
+        listItems.push(line);
+        return;
+      }
+
+      // If we were in a list and hit a non-list line, render the list
+      if (inList && line.trim() !== '') {
+        elements.push(renderList(listItems, index));
+        listItems = [];
+        inList = false;
+      }
+
+      // Handle regular paragraphs
+      if (line.trim() !== '') {
+        const formattedLine = formatInlineElements(line);
+        elements.push(
+          <p key={index} className="text-sm text-slate-700 mb-2 leading-relaxed">
+            {formattedLine}
+          </p>
+        );
+      } else if (!inList) {
+        // Add some space for empty lines
+        elements.push(<div key={index} className="h-2" />);
+      }
+    });
+
+    // Don't forget to render any remaining list
+    if (inList) {
+      elements.push(renderList(listItems, lines.length));
     }
-  }, [node]);
 
-  const handleChange = (key: string, value: any) => {
-    const newFormValues = { ...formValues, [key]: value };
-    setFormValues(newFormValues);
+    return elements;
+  };
+
+  const renderList = (items: string[], key: number) => {
+    const isOrdered = items[0]?.match(/^\s*\d+\.\s/);
+    const ListComponent = isOrdered ? 'ol' : 'ul';
     
-    // Update the node data
-    const updatedData = { ...node.data, config: { ...node.data.config, ...newFormValues } };
-    onUpdateNode(node.id, updatedData);
+    return (
+      <ListComponent key={key} className={`my-2 pl-4 space-y-1 ${isOrdered ? 'list-decimal' : 'list-disc'}`}>
+        {items.map((item, i) => (
+          <li key={i} className="text-sm text-slate-700 leading-relaxed">
+            {formatInlineElements(item.replace(/^\s*[-*•]\s/, '').replace(/^\s*\d+\.\s/, ''))}
+          </li>
+        ))}
+      </ListComponent>
+    );
   };
 
-  const copyToClipboard = async () => {
-    if (node?.data?.output) {
-      await navigator.clipboard.writeText(node.data.output);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    }
-  };
-
-  if (!node) {
-    return (
-      <Card className="w-full h-full bg-white/50 backdrop-blur-sm border-0 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 py-4 rounded-t-lg">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Properties
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6 text-center">
-          <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-            <Sparkles className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Select a node to edit its properties</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const isInputNode = node.data.type === 'toolhouseInput';
-  const isOutputNode = node.data.type === 'outputNode';
-
-  const renderInputFields = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="prompt" className="text-sm font-medium text-gray-700">Prompt</Label>
-        <Textarea 
-          id="prompt" 
-          value={formValues.prompt || ''}
-          onChange={(e) => handleChange('prompt', e.target.value)}
-          placeholder="Enter your prompt here..."
-          className="min-h-[120px] bg-white border-gray-200 focus:border-blue-300 focus:ring-blue-200"
-        />
-        <p className="text-xs text-gray-500">Describe what you want the AI to do with Toolhouse tools</p>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="model" className="text-sm font-medium text-gray-700">Model</Label>
-        <Input 
-          id="model" 
-          value={formValues.model || 'gpt-4o-mini'}
-          onChange={(e) => handleChange('model', e.target.value)}
-          className="bg-white border-gray-200 focus:border-blue-300 focus:ring-blue-200"
-        />
-        <p className="text-xs text-gray-500">OpenAI model to use for processing</p>
-      </div>
-    </div>
-  );
-
-  const renderOutputDisplay = () => (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-          <Code className="h-4 w-4" />
-          Output
-        </Label>
-        <div className="flex items-center gap-2">
-          {node.data.isProcessing && (
-            <div className="flex items-center gap-2 text-blue-600">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span className="text-xs">Processing...</span>
-            </div>
-          )}
-          {node.data.output && !node.data.isProcessing && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={copyToClipboard}
-              className="h-8 px-2"
-            >
-              {isCopied ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                {isOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
-        </div>
-      </div>
-      
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleContent>
-          {node.data.isProcessing ? (
-            <div className="rounded-lg border bg-blue-50 p-4">
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 mr-3 animate-spin text-blue-500" />
-                <span className="text-sm text-blue-700">Processing your request...</span>
-              </div>
-            </div>
-          ) : node.data.output ? (
-            <div className="rounded-lg border bg-white shadow-sm">
-              <div className="p-4 max-h-[400px] overflow-y-auto">
-                <MarkdownRenderer content={node.data.output} />
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="text-center py-8">
-                <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No output data yet</p>
-                <p className="text-xs text-gray-400 mt-1">Run the workflow to generate output</p>
-              </div>
-            </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
-  );
-
-  const renderFields = () => {
-    if (isInputNode) {
-      return renderInputFields();
-    } else if (isOutputNode) {
-      return renderOutputDisplay();
-    }
-    return (
-      <div className="text-center py-8">
-        <p className="text-sm text-gray-500">No editable properties</p>
-      </div>
-    );
+  const formatInlineElements = (text: string) => {
+    // Handle inline code
+    text = text.replace(/`([^`]+)`/g, '<code className="bg-slate-100 px-1 py-0.5 rounded text-xs font-mono text-slate-800">$1</code>');
+    
+    // Handle bold text
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong className="font-semibold text-slate-900">$1</strong>');
+    
+    // Handle italic text
+    text = text.replace(/\*([^*]+)\*/g, '<em className="italic">$1</em>');
+    
+    // Convert back to JSX
+    return <span dangerouslySetInnerHTML={{ __html: text }} />;
   };
 
   return (
-    <Card className="w-full h-full bg-white/50 backdrop-blur-sm border-0 shadow-sm">
-      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 py-4 rounded-t-lg">
-        <CardTitle className="text-sm flex items-center gap-2">
-          {isInputNode && <Sparkles className="h-4 w-4 text-blue-500" />}
-          {isOutputNode && <Code className="h-4 w-4 text-purple-500" />}
-          {!isInputNode && !isOutputNode && <FileText className="h-4 w-4" />}
-          Properties: {node.data.label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4">
-        {renderFields()}
-      </CardContent>
-    </Card>
+    <div className={`prose prose-sm max-w-none ${className}`}>
+      {parseMarkdown(content)}
+    </div>
   );
 };
 
-export default NodeProperties;
+export default MarkdownRenderer;

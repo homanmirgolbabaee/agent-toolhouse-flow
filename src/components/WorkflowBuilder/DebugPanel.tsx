@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ArrowUp, ArrowDown, Terminal, CheckCircle, AlertCircle, RefreshCw, Zap } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface DebugPanelProps {
   logs: string[];
@@ -28,27 +29,26 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ logs, expanded, onToggleExpand 
   };
 
   const formatLogText = (log: string) => {
-    // Remove emoji indicators since we're showing them as icons
     return log.replace(/[🔧🛠️✅❌⚡🚀]/g, '').trim();
   };
 
   return (
-    <Card className={`w-full bg-white/90 backdrop-blur-sm border-0 shadow-lg ${expanded ? 'h-64' : 'h-12'} overflow-hidden flex flex-col transition-all duration-300`}>
-      <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white py-3 px-4 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm flex items-center gap-2">
+    <Card className={`w-full bg-white border-t border-slate-200 ${expanded ? 'h-64' : 'h-12'} overflow-hidden flex flex-col transition-all duration-300 rounded-none`}>
+      <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
           <Terminal className="h-4 w-4" />
           Debug Console
           {logs.length > 0 && (
-            <span className="bg-slate-700 text-xs px-2 py-1 rounded-full">
-              {logs.length}
-            </span>
+            <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">
+              {logs.length} logs
+            </Badge>
           )}
         </CardTitle>
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={onToggleExpand} 
-          className="h-6 w-6 p-0 text-white hover:bg-slate-700"
+          className="h-8 w-8 p-0"
         >
           {expanded ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
         </Button>

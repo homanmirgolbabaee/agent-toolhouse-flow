@@ -22,7 +22,7 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Link, Zap, Sparkles, RefreshCw, Group, Square, CheckSquare } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, Group, Square, CheckSquare, Link, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { toast } from 'sonner';
@@ -41,11 +41,11 @@ const nodeTypes = {
 };
 
 const BUNDLE_COLORS = [
-  '#e3f2fd', // light blue
-  '#f3e5f5', // light purple
-  '#e8f5e9', // light green
-  '#fff3e0', // light orange
-  '#fce4ec', // light pink
+  '#e3f2fd',
+  '#f3e5f5',
+  '#e8f5e9',
+  '#fff3e0',
+  '#fce4ec',
 ];
 
 const WorkflowBuilderInner: React.FC = () => {
@@ -61,7 +61,6 @@ const WorkflowBuilderInner: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [debugExpanded, setDebugExpanded] = useState(false);
   
-  // Bundle-related state
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -81,7 +80,6 @@ const WorkflowBuilderInner: React.FC = () => {
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (isSelectionMode) {
-      // Toggle node selection
       setSelectedNodes(prev => 
         prev.includes(node.id) 
           ? prev.filter(id => id !== node.id)
@@ -185,7 +183,6 @@ const WorkflowBuilderInner: React.FC = () => {
     setLogs((prevLogs) => [`[${timestamp}] ${message}`, ...prevLogs]);
   };
 
-  // Bundle management functions
   const createBundle = () => {
     if (selectedNodes.length === 0) {
       uiToast({
@@ -205,7 +202,6 @@ const WorkflowBuilderInner: React.FC = () => {
       isRunning: false
     };
 
-    // Update nodes with bundle ID and style
     setNodes(nds => nds.map(node => {
       if (selectedNodes.includes(node.id)) {
         return {
@@ -246,7 +242,6 @@ const WorkflowBuilderInner: React.FC = () => {
     const bundle = bundles.find(b => b.id === bundleId);
     if (!bundle) return;
 
-    // Remove bundle styling from nodes
     setNodes(nds => nds.map(node => {
       if (bundle.nodeIds.includes(node.id)) {
         const { bundleId, ...data } = node.data;
@@ -389,7 +384,6 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
           
-          // Update output node to show processing state
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -406,12 +400,10 @@ const WorkflowBuilderInner: React.FC = () => {
             })
           );
           
-          // Get response from Toolhouse service
           const response = await toolhouseService.processToolhouseWorkflow(prompt, model);
           
           addLog(`✅ ${bundle.name} execution completed successfully`);
           
-          // Update the output node with the formatted response
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -437,7 +429,6 @@ const WorkflowBuilderInner: React.FC = () => {
           const errorMessage = error instanceof Error ? error.message : String(error);
           addLog(`❌ Error running ${bundle.name}: ${errorMessage}`);
           
-          // Update output node to show error
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -471,7 +462,6 @@ const WorkflowBuilderInner: React.FC = () => {
   const runWorkflow = async () => {
     setIsProcessing(true);
     
-    // Run all bundles sequentially
     for (const bundle of bundles) {
       await runBundle(bundle.id);
     }
@@ -479,7 +469,6 @@ const WorkflowBuilderInner: React.FC = () => {
     setIsProcessing(false);
   };
 
-  // Add some initial nodes to help the user get started
   useEffect(() => {
     if (nodes.length === 0) {
       const inputNode = {
@@ -511,7 +500,6 @@ const WorkflowBuilderInner: React.FC = () => {
       
       setNodes([inputNode, outputNode]);
       
-      // Add an edge connecting them
       const newEdge = {
         id: `edge-${inputNode.id}-${outputNode.id}`,
         source: inputNode.id,
@@ -526,141 +514,147 @@ const WorkflowBuilderInner: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm p-4 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-            <Sparkles className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Toolhouse Workflow Builder
-            </h1>
-            <p className="text-sm text-slate-600">Visual AI workflow editor powered by Toolhouse</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              type="password"
-              placeholder="Toolhouse API Key"
-              className="px-3 py-2 text-sm border rounded-lg w-48 sm:w-64 bg-white"
-              value={toolhouseApiKey}
-              onChange={(e) => setToolhouseApiKey(e.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="OpenAI API Key"
-              className="px-3 py-2 text-sm border rounded-lg w-48 sm:w-64 bg-white"
-              value={openaiApiKey}
-              onChange={(e) => setOpenaiApiKey(e.target.value)}
-            />
+    <div className="h-screen flex flex-col bg-slate-50">
+      {/* Cleaner Header */}
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">Toolhouse Workflow Builder</h1>
+                <p className="text-sm text-slate-600">Visual AI workflow editor</p>
+              </div>
+            </div>
           </div>
           
-          {/* Bundle Controls */}
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={toggleSelectionMode}
-              size="sm" 
-              variant={isSelectionMode ? "default" : "outline"}
-              className="px-3 py-2"
-            >
-              {isSelectionMode ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
-              {isSelectionMode ? "Exit Select" : "Select Nodes"}
-            </Button>
+          <div className="flex items-center gap-4">
+            {/* API Keys */}
+            <div className="flex gap-3">
+              <Input
+                type="password"
+                placeholder="Toolhouse API Key"
+                className="w-48 h-9 text-sm"
+                value={toolhouseApiKey}
+                onChange={(e) => setToolhouseApiKey(e.target.value)}
+              />
+              <Input
+                type="password"
+                placeholder="OpenAI API Key"
+                className="w-48 h-9 text-sm"
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+              />
+            </div>
             
-            {selectedNodes.length > 0 && (
-              <>
-                <Button 
-                  onClick={createBundle}
-                  size="sm" 
-                  variant="outline"
-                  className="px-3 py-2"
-                >
-                  <Group className="h-4 w-4 mr-2" />
-                  Create Bundle ({selectedNodes.length})
-                </Button>
-                <Button 
-                  onClick={clearSelection}
-                  size="sm" 
-                  variant="ghost"
-                  className="px-3 py-2"
-                >
-                  Clear
-                </Button>
-              </>
-            )}
+            {/* Bundle Controls */}
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={toggleSelectionMode}
+                size="sm" 
+                variant={isSelectionMode ? "default" : "outline"}
+                className="h-9"
+              >
+                {isSelectionMode ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
+                {isSelectionMode ? "Exit Select" : "Select"}
+              </Button>
+              
+              {selectedNodes.length > 0 && (
+                <>
+                  <Button 
+                    onClick={createBundle}
+                    size="sm" 
+                    variant="outline"
+                    className="h-9"
+                  >
+                    <Group className="w-4 h-4 mr-2" />
+                    Bundle ({selectedNodes.length})
+                  </Button>
+                  <Button 
+                    onClick={clearSelection}
+                    size="sm" 
+                    variant="ghost"
+                    className="h-9"
+                  >
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
+            
+            {/* Run Button */}
+            <Button 
+              onClick={runWorkflow} 
+              size="sm" 
+              disabled={isProcessing}
+              className="h-9 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run All
+                </>
+              )}
+            </Button>
           </div>
-          
-          <Button 
-            onClick={runWorkflow} 
-            size="sm" 
-            disabled={isProcessing}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-          >
-            {isProcessing ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 mr-2" />
-                Run All Bundles
-              </>
-            )}
-          </Button>
         </div>
+        
+        {/* Bundle Bar */}
+        {bundles.length > 0 && (
+          <div className="border-t border-slate-100 p-3 flex gap-2 overflow-x-auto">
+            {bundles.map((bundle) => (
+              <div 
+                key={bundle.id}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white"
+                style={{ borderLeftColor: bundle.color, borderLeftWidth: '3px' }}
+              >
+                <Group className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-medium text-slate-700">{bundle.name}</span>
+                <span className="text-xs text-slate-500">({bundle.nodeIds.length} nodes)</span>
+                <Button
+                  onClick={() => runBundle(bundle.id)}
+                  disabled={bundle.isRunning}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                >
+                  {bundle.isRunning ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Play className="w-3 h-3" />
+                  )}
+                </Button>
+                <Button
+                  onClick={() => deleteBundle(bundle.id)}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Bundle Bar */}
-      {bundles.length > 0 && (
-        <div className="border-b bg-white/50 backdrop-blur-sm p-2 flex gap-2 overflow-x-auto">
-          {bundles.map((bundle) => (
-            <div 
-              key={bundle.id}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border"
-              style={{ backgroundColor: bundle.color, borderColor: bundle.color.replace('f', 'c') }}
-            >
-              <Group className="h-4 w-4" />
-              <span className="text-sm font-medium">{bundle.name}</span>
-              <span className="text-xs text-gray-600">({bundle.nodeIds.length} nodes)</span>
-              <Button
-                onClick={() => runBundle(bundle.id)}
-                disabled={bundle.isRunning}
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-              >
-                {bundle.isRunning ? (
-                  <RefreshCw className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-              </Button>
-              <Button
-                onClick={() => deleteBundle(bundle.id)}
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-              >
-                ×
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex-1 flex">
-        {/* Left Sidebar - Node Panel */}
-        <div className="w-64 border-r bg-white/50 backdrop-blur-sm p-3">
+      {/* Main Content */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left Sidebar */}
+        <div className="w-80 border-r border-slate-200 bg-white">
           <NodePanel onDragStart={onDragStart} />
         </div>
 
-        {/* Main Canvas */}
+        {/* Canvas */}
         <div className="flex-1 flex flex-col">
-          <div ref={reactFlowWrapper} className="flex-1 relative">
+          <div ref={reactFlowWrapper} className="flex-1">
             <ReactFlow
               nodes={nodes.map(node => ({
                 ...node,
@@ -683,15 +677,22 @@ const WorkflowBuilderInner: React.FC = () => {
               selectionOnDrag={false}
               selectNodesOnDrag={false}
             >
-              <Controls className="bg-white border shadow-sm" />
-              <Background color="#e2e8f0" gap={20} />
-              <MiniMap className="bg-white border shadow-sm" />
-              <Panel position="bottom-center" className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-sm border">
-                <div className="text-xs flex items-center gap-2 text-slate-600">
-                  <Link className="h-4 w-4" /> 
+              <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
+              <Background color="#e2e8f0" gap={16} size={1} />
+              <MiniMap 
+                className="bg-white border border-slate-200 rounded-lg shadow-sm" 
+                nodeColor={(node) => {
+                  if (node.data.type === 'toolhouseInput') return '#3b82f6';
+                  if (node.data.type === 'outputNode') return '#8b5cf6';
+                  return '#64748b';
+                }}
+              />
+              <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
+                <div className="text-xs flex items-center gap-3 text-slate-600">
+                  <Link className="w-4 h-4" /> 
                   <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Connect nodes and create bundles to build workflows'}</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Zap className="h-3 w-3" />
+                  <span className="inline-flex items-center gap-1 text-blue-600">
+                    <Zap className="w-3 h-3" />
                     Powered by Toolhouse
                   </span>
                 </div>
@@ -707,8 +708,8 @@ const WorkflowBuilderInner: React.FC = () => {
           />
         </div>
 
-        {/* Right Sidebar - Properties Panel */}
-        <div className="w-64 border-l bg-white/50 backdrop-blur-sm p-3">
+        {/* Right Sidebar */}
+        <div className="w-80 border-l border-slate-200 bg-white">
           <NodeProperties node={selectedNode} onUpdateNode={updateNode} />
         </div>
       </div>
