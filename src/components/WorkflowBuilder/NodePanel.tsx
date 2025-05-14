@@ -1,141 +1,288 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Code, Sparkles, Zap, Info, Layers, ArrowRight } from 'lucide-react';
+import { MessageSquare, Code, Play, Plus, Group, Trash2, RefreshCw, Layers } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface NodeType {
   type: string;
   label: string;
-  category: string;
-  description: string;
   icon: React.ReactNode;
-  gradient: string;
-  borderColor: string;
+  color: string;
 }
 
-interface NodePanelProps {
+interface Bundle {
+  id: string;
+  name: string;
+  nodeIds: string[];
+  color: string;
+  isRunning: boolean;
+}
+
+interface BundlesPanelProps {
   onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeType: string) => void;
+  bundles: Bundle[];
+  onRunBundle: (bundleId: string) => void;
+  onDeleteBundle: (bundleId: string) => void;
+  selectedNodes: string[];
+  onCreateBundle: () => void;
+  isSelectionMode: boolean;
+  onToggleSelectionMode: () => void;
+  onClearSelection: () => void;
 }
 
 const NODE_TYPES: NodeType[] = [
   {
     type: 'toolhouseInput',
     label: 'Input',
-    category: 'Input',
-    description: 'AI-powered input with Toolhouse tools',
-    icon: <MessageSquare className="h-5 w-5" />,
-    gradient: 'from-blue-50 to-blue-100',
-    borderColor: 'border-blue-200'
+    icon: <MessageSquare className="h-4 w-4" />,
+    color: 'blue'
   },
   {
     type: 'outputNode',
     label: 'Output',
-    category: 'Output',
-    description: 'Display and manage workflow results',
-    icon: <Code className="h-5 w-5" />,
-    gradient: 'from-purple-50 to-purple-100',
-    borderColor: 'border-purple-200'
+    icon: <Code className="h-4 w-4" />,
+    color: 'purple'
   }
 ];
 
-const NodePanel: React.FC<NodePanelProps> = ({ onDragStart }) => {
+const BundlesPanel: React.FC<BundlesPanelProps> = ({
+  onDragStart,
+  bundles,
+  onRunBundle,
+  onDeleteBundle,
+  selectedNodes,
+  onCreateBundle,
+  isSelectionMode,
+  onToggleSelectionMode,
+  onClearSelection
+}) => {
+  const getColorClasses = (color: string) => {
+    switch (color) {
+      case 'blue':
+        return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' };
+      case 'purple':
+        return { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' };
+      default:
+        return { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' };
+    }
+  };
+
+  const getBundleColorFromString = (colorString: string) => {
+    const colorMap: {[key: string]: string} = {
+      '#e3f2fd': 'Light Blue',
+      '#f3e5f5': 'Light Purple', 
+      '#e8f5e9': 'Light Green',
+      '#fff3e0': 'Light Orange',
+      '#fce4ec': 'Light Pink'
+    };
+    return colorMap[colorString] || 'Custom';
+  };
+
   return (
-    <Card className="w-full h-full bg-white border-0">
-      <CardHeader className="bg-slate-50 py-4 border-b border-slate-100">
-        <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
-          <Layers className="h-4 w-4 text-blue-500" />
-          Components
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-4">
-        {/* Getting Started */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="bg-blue-100 rounded-lg p-2">
-              <Info className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-blue-800 mb-1">Getting Started</h3>
-              <p className="text-xs text-blue-700 leading-relaxed">
-                Drag components to the canvas and connect them
-              </p>
-              <div className="flex items-center gap-1 mt-2 text-xs text-blue-600">
-                <span>Drag</span>
-                <ArrowRight className="h-3 w-3" />
-                <span>Connect</span>
-                <ArrowRight className="h-3 w-3" />
-                <span>Run</span>
+    <div className="w-full h-full bg-white flex flex-col">
+      {/* Header */}
+      <div className="bg-slate-50 py-4 px-4 border-b border-slate-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-blue-500" />
+            <h2 className="text-lg font-semibold text-slate-900">Workflow</h2>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {bundles.length} bundles
+          </Badge>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        
+        {/* Bundle Creation Section */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+            Bundle Creation
+          </h3>
+          
+          <div className="space-y-3">
+            <Button
+              onClick={onToggleSelectionMode}
+              variant={isSelectionMode ? "default" : "outline"}
+              className="w-full justify-start h-10"
+            >
+              <Group className="h-4 w-4 mr-2" />
+              {isSelectionMode ? "Exit Selection Mode" : "Select Nodes for Bundle"}
+            </Button>
+            
+            {isSelectionMode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-blue-700">
+                    {selectedNodes.length} nodes selected
+                  </span>
+                  <div className="flex gap-2">
+                    {selectedNodes.length > 0 && (
+                      <Button
+                        onClick={onCreateBundle}
+                        size="sm"
+                        className="h-7"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Create Bundle
+                      </Button>
+                    )}
+                    <Button
+                      onClick={onClearSelection}
+                      size="sm"
+                      variant="ghost"
+                      className="h-7"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Components */}
+        <Separator />
+
+        {/* Active Bundles Section */}
         <div className="space-y-3">
-          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-            Available Components
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+              Active Bundles
+            </h3>
+            {bundles.length > 0 && (
+              <Button
+                onClick={() => bundles.forEach(bundle => onRunBundle(bundle.id))}
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={bundles.some(b => b.isRunning)}
+              >
+                <Play className="h-3 w-3 mr-1" />
+                Run All
+              </Button>
+            )}
           </div>
           
-          {NODE_TYPES.map((nodeType) => (
-            <div
-              key={nodeType.type}
-              className={`
-                group p-4 rounded-lg border-2 ${nodeType.borderColor} 
-                bg-gradient-to-br ${nodeType.gradient} cursor-grab active:cursor-grabbing 
-                hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md
-              `}
-              draggable
-              onDragStart={(event) => onDragStart(event, nodeType.type)}
-            >
-              <div className="flex items-start gap-3">
-                <div className="bg-white rounded-lg p-3 shadow-sm group-hover:shadow-md transition-shadow">
-                  <div className={nodeType.type === 'toolhouseInput' ? 'text-blue-600' : 'text-purple-600'}>
-                    {nodeType.icon}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-semibold text-sm text-slate-900">
-                      {nodeType.label}
-                    </h4>
-                    {nodeType.type === 'toolhouseInput' && (
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
-                        <Zap className="h-3 w-3 mr-1" />
-                        AI
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed mb-2">
-                    {nodeType.description}
-                  </p>
-                  <Badge variant="outline" className="text-xs">
-                    {nodeType.category}
-                  </Badge>
-                </div>
-              </div>
+          {bundles.length === 0 ? (
+            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-6 text-center">
+              <Group className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-500 mb-1">No bundles created yet</p>
+              <p className="text-xs text-slate-400">Select nodes and create your first bundle</p>
             </div>
-          ))}
+          ) : (
+            <div className="space-y-3">
+              {bundles.map((bundle) => (
+                <div
+                  key={bundle.id}
+                  className="border border-slate-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow"
+                  style={{ borderLeftColor: bundle.color, borderLeftWidth: '4px' }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-slate-900">{bundle.name}</h4>
+                      {bundle.isRunning && (
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Running
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {bundle.nodeIds.length} nodes
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center gap-1 mb-3">
+                    <span className="text-xs text-slate-500">Color:</span>
+                    <div
+                      className="w-4 h-4 rounded border border-slate-200"
+                      style={{ backgroundColor: bundle.color }}
+                    />
+                    <span className="text-xs text-slate-500">
+                      {getBundleColorFromString(bundle.color)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => onRunBundle(bundle.id)}
+                      disabled={bundle.isRunning}
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-8 text-xs"
+                    >
+                      {bundle.isRunning ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Running...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3 w-3 mr-1" />
+                          Run Bundle
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => onDeleteBundle(bundle.id)}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Powered by Toolhouse */}
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 rounded-lg p-2">
-              <Sparkles className="h-4 w-4 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-purple-800 mb-1">
-                Powered by Toolhouse
-              </h3>
-              <p className="text-xs text-purple-700 leading-relaxed">
-                Connect AI to the real world with function calling
-              </p>
-            </div>
+        <Separator />
+
+        {/* Components Section */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+            Components
+          </h3>
+          
+          <div className="grid grid-cols-2 gap-2">
+            {NODE_TYPES.map((nodeType) => {
+              const colors = getColorClasses(nodeType.color);
+              return (
+                <div
+                  key={nodeType.type}
+                  className={`
+                    p-3 rounded-lg border cursor-grab active:cursor-grabbing 
+                    hover:shadow-sm transition-shadow ${colors.bg} ${colors.border}
+                  `}
+                  draggable
+                  onDragStart={(event) => onDragStart(event, nodeType.type)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={colors.text}>
+                      {nodeType.icon}
+                    </div>
+                    <span className={`text-sm font-medium ${colors.text}`}>
+                      {nodeType.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+          
+          <p className="text-xs text-slate-500 italic">
+            Drag components to the canvas to add them
+          </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-export default NodePanel;
+export default BundlesPanel;

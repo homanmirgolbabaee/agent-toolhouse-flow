@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { toast } from 'sonner';
 import { useToast } from '@/hooks/use-toast';
+import BundlesPanel from './NodePanel';
 
 interface Bundle {
   id: string;
@@ -645,11 +646,21 @@ const WorkflowBuilderInner: React.FC = () => {
         )}
       </div>
 
-      {/* Main Content */}
+{/* Main Content */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Sidebar */}
+        {/* Left Sidebar - Bundle Management */}
         <div className="w-80 border-r border-slate-200 bg-white">
-          <NodePanel onDragStart={onDragStart} />
+          <BundlesPanel 
+            onDragStart={onDragStart}
+            bundles={bundles}
+            onRunBundle={runBundle}
+            onDeleteBundle={deleteBundle}
+            selectedNodes={selectedNodes}
+            onCreateBundle={createBundle}
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={toggleSelectionMode}
+            onClearSelection={clearSelection}
+          />
         </div>
 
         {/* Canvas */}
@@ -690,7 +701,7 @@ const WorkflowBuilderInner: React.FC = () => {
               <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
                 <div className="text-xs flex items-center gap-3 text-slate-600">
                   <Link className="w-4 h-4" /> 
-                  <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Connect nodes and create bundles to build workflows'}</span>
+                  <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}</span>
                   <span className="inline-flex items-center gap-1 text-blue-600">
                     <Zap className="w-3 h-3" />
                     Powered by Toolhouse
@@ -708,7 +719,7 @@ const WorkflowBuilderInner: React.FC = () => {
           />
         </div>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar - Properties */}
         <div className="w-80 border-l border-slate-200 bg-white">
           <NodeProperties node={selectedNode} onUpdateNode={updateNode} />
         </div>
