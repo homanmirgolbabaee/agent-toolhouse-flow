@@ -531,11 +531,15 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
           <ul className="text-xs text-indigo-700 space-y-2">
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span>Connect Input to Output nodes with edges</span>
+              <span>Connect Input/Agent to Output nodes with edges</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
               <span>Ctrl+Click to select multiple nodes</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-indigo-500">•</span>
+              <span>Import YAML files to create agent workflows</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>

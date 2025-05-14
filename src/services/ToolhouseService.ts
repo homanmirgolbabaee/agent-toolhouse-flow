@@ -1,5 +1,6 @@
 import { Toolhouse } from "@toolhouseai/sdk";
 import OpenAI from "openai";
+import yamlService, { ToolhouseAgentConfig } from "./ToolhouseYamlService";
 
 class ToolhouseService {
   private toolhouse: Toolhouse | null = null;
@@ -64,7 +65,78 @@ class ToolhouseService {
     }
   }
 
-  // Following the exact pattern from Toolhouse TypeScript quickstart
+  // New method to run Toolhouse agents from YAML configuration
+  async runToolhouseAgent(
+    agentConfig: ToolhouseAgentConfig, 
+    variableValues: Record<string, any> = {},
+    model: string = "gpt-4o-mini"
+  ): Promise<string> {
+    if (!this.isInitialized() || !this.openai || !this.toolhouse) {
+      console.warn('⚠️ Toolhouse or OpenAI not initialized');
+      return "❌ Error: Services not properly initialized";
+    }
+
+    try {
+      console.log(`🤖 Running Toolhouse agent: ${agentConfig.title}`);
+      
+      // Merge default vars with provided values
+      const mergedVars = { ...agentConfig.vars, ...variableValues };
+      
+      // Generate the final prompt with variables
+      const finalPrompt = yamlService.generatePromptWithVariables(agentConfig.prompt, mergedVars);
+      console.log(`📝 Generated prompt: "${finalPrompt.substring(0, 100)}..."`);
+      
+      // Create initial messages array
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{
+        role: "user",
+        content: finalPrompt
+      }];
+      
+      // Get tools from Toolhouse
+      const tools = await this.toolhouse.getTools() as OpenAI.Chat.Completions.ChatCompletionTool[];
+      console.log(`🛠️ Using ${tools.length} available tools for agent: ${agentConfig.title}`);
+      
+      // First OpenAI call with tools
+      console.log('🚀 Making initial OpenAI call with Toolhouse tools...');
+      const chatCompletion = await this.openai.chat.completions.create({
+        messages,
+        model,
+        tools
+      });
+      
+      // Run tools through Toolhouse
+      console.log('⚡ Running tools through Toolhouse...');
+      const openAiMessage = await this.toolhouse.runTools(chatCompletion) as OpenAI.Chat.Completions.ChatCompletionMessageParam[];
+      
+      // Create new messages array with tool results
+      const newMessages = [...messages, ...openAiMessage];
+      
+      // Second OpenAI call with tool results
+      console.log('🔄 Making follow-up OpenAI call with tool results...');
+      const chatCompleted = await this.openai.chat.completions.create({
+        messages: newMessages,
+        model,
+        tools
+      });
+      
+      console.log(`✅ Agent "${agentConfig.title}" completed successfully`);
+      const finalContent = chatCompleted.choices[0].message.content;
+      
+      // Enhanced response formatting for better markdown display
+      if (finalContent) {
+        return this.formatAgentResponse(agentConfig.title, finalContent);
+      }
+      
+      return 'Agent completed but no response generated';
+      
+    } catch (error) {
+      console.error(`❌ Error running agent "${agentConfig.title}":`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return `❌ **Agent Error: ${agentConfig.title}**\n\nAn error occurred while running the agent:\n\n\`\`\`\n${errorMessage}\n\`\`\`\n\nPlease check your configuration and try again.`;
+    }
+  }
+
+  // Original workflow method (kept for backward compatibility)
   async processToolhouseWorkflow(prompt: string, model: string = "gpt-4o-mini"): Promise<string> {
     if (!this.isInitialized() || !this.openai || !this.toolhouse) {
       console.warn('⚠️ Toolhouse or OpenAI not initialized');
@@ -125,7 +197,18 @@ class ToolhouseService {
     }
   }
 
-  // Format response to ensure proper markdown rendering
+  // Format response for agents
+  private formatAgentResponse(agentTitle: string, response: string): string {
+    // If the response already contains markdown formatting, return with agent header
+    if (response.includes('```') || response.includes('**') || response.includes('##')) {
+      return `## 🤖 Agent: ${agentTitle}\n\n${response}`;
+    }
+    
+    // Otherwise, add basic markdown formatting
+    return `## 🤖 Agent: ${agentTitle}\n\n${response}`;
+  }
+
+  // Format response to ensure proper markdown rendering (existing method)
   private formatResponse(response: string): string {
     // If the response already contains markdown formatting, return as-is
     if (response.includes('```') || response.includes('**') || response.includes('##')) {
