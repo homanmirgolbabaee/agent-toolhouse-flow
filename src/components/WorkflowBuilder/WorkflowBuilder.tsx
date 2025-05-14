@@ -13,7 +13,9 @@ import ReactFlow, {
   Panel,
   useReactFlow,
   ReactFlowInstance,
-  ReactFlowProvider
+  ReactFlowProvider,
+  EdgeChange,
+  NodeChange
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -66,18 +68,60 @@ const WorkflowBuilderInner: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [nextBundleId, setNextBundleId] = useState(1);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [runningBundles, setRunningBundles] = useState<Set<string>>(new Set());
+
+  // Custom node change handler to maintain bundle relationships
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    // Handle node deletions by cleaning up bundles
+    changes.forEach(change => {
+      if (change.type === 'remove') {
+        const nodeId = change.id;
+        
+        // Remove node from all bundles and clean up empty bundles
+        setBundles(prev => prev.map(bundle => ({
+          ...bundle,
+          nodeIds: bundle.nodeIds.filter(id => id !== nodeId)
+        })).filter(bundle => bundle.nodeIds.length > 0));
+        
+        // Clear selection if deleted node was selected
+        if (selectedNode?.id === nodeId) {
+          setSelectedNode(null);
+        }
+        
+        // Remove from selected nodes
+        setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+      }
+    });
+    
+    onNodesChange(changes);
+  }, [onNodesChange, selectedNode, setBundles, setSelectedNode, setSelectedNodes]);
+
+  // Custom edge change handler with smooth animations
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    onEdgesChange(changes);
+  }, [onEdgesChange]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({
-      ...params,
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#3b82f6', strokeWidth: 2 }
-    }, eds)),
+    (params: Connection) => {
+      const newEdge = {
+        ...params,
+        id: `edge-${params.source}-${params.target}`,
+        type: 'smoothstep',
+        animated: true,
+        style: { 
+          stroke: '#3b82f6', 
+          strokeWidth: 2,
+          transition: 'all 0.3s ease-in-out'
+        },
+      };
+      setEdges((eds) => addEdge(newEdge, eds));
+    },
     [setEdges]
   );
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    event.stopPropagation();
+    
     if (isSelectionMode) {
       setSelectedNodes(prev => 
         prev.includes(node.id) 
@@ -165,25 +209,24 @@ const WorkflowBuilderInner: React.FC = () => {
   };
 
   const handleNodeDelete = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
-    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    // Remove the node with smooth animation
+    setNodes((nds) => nds.map(node => 
+      node.id === nodeId 
+        ? { ...node, style: { ...node.style, opacity: 0, transform: 'scale(0.8)' } }
+        : node
+    ));
     
-    // Update bundles to remove deleted node
-    setBundles(prev => prev.map(bundle => ({
-      ...bundle,
-      nodeIds: bundle.nodeIds.filter(id => id !== nodeId)
-    })).filter(bundle => bundle.nodeIds.length > 0));
-
-    // Clear selection if deleted node was selected
-    if (selectedNode?.id === nodeId) {
-      setSelectedNode(null);
-    }
+    // After animation, actually remove the node
+    setTimeout(() => {
+      setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+      setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    }, 300);
 
     uiToast({
       title: "Node Deleted",
       description: "Node and its connections have been removed.",
     });
-  }, [setNodes, setEdges, setBundles, selectedNode, uiToast]);
+  }, [setNodes, setEdges, uiToast]);
 
   const updateNode = useCallback(
     (nodeId: string, data: any) => {
@@ -214,6 +257,26 @@ const WorkflowBuilderInner: React.FC = () => {
       return;
     }
 
+    // Check if selected nodes form a valid workflow
+    const inputNodes = selectedNodes.filter(nodeId => {
+      const node = nodes.find(n => n.id === nodeId);
+      return node?.data.type === 'toolhouseInput';
+    });
+
+    const outputNodes = selectedNodes.filter(nodeId => {
+      const node = nodes.find(n => n.id === nodeId);
+      return node?.data.type === 'outputNode';
+    });
+
+    if (inputNodes.length === 0 || outputNodes.length === 0) {
+      uiToast({
+        title: "Invalid Bundle",
+        description: "A bundle must contain at least one input and one output node",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const bundleId = `bundle_${nextBundleId}`;
     const newBundle: Bundle = {
       id: bundleId,
@@ -223,6 +286,7 @@ const WorkflowBuilderInner: React.FC = () => {
       isRunning: false
     };
 
+    // Update nodes with bundle styling
     setNodes(nds => nds.map(node => {
       if (selectedNodes.includes(node.id)) {
         return {
@@ -232,6 +296,7 @@ const WorkflowBuilderInner: React.FC = () => {
             ...node.style, 
             backgroundColor: newBundle.color,
             border: `2px solid ${newBundle.color.replace('f', 'c')}`,
+            transition: 'all 0.3s ease-in-out',
           }
         };
       }
@@ -263,13 +328,19 @@ const WorkflowBuilderInner: React.FC = () => {
     const bundle = bundles.find(b => b.id === bundleId);
     if (!bundle) return;
 
+    // Remove bundle styling from nodes with smooth transition
     setNodes(nds => nds.map(node => {
       if (bundle.nodeIds.includes(node.id)) {
         const { bundleId, ...data } = node.data;
         return {
           ...node,
           data,
-          style: { ...node.style, backgroundColor: undefined, border: undefined }
+          style: { 
+            ...node.style, 
+            backgroundColor: undefined, 
+            border: '2px solid #e2e8f0',
+            transition: 'all 0.3s ease-in-out',
+          }
         };
       }
       return node;
@@ -342,23 +413,62 @@ const WorkflowBuilderInner: React.FC = () => {
     }
   };
 
+  // Update bundle running state and apply glow effect
+  const updateBundleRunningState = useCallback((bundleId: string, isRunning: boolean) => {
+    setBundles(prev => prev.map(b => 
+      b.id === bundleId ? { ...b, isRunning } : b
+    ));
+    
+    setRunningBundles(prev => {
+      const newSet = new Set(prev);
+      if (isRunning) {
+        newSet.add(bundleId);
+      } else {
+        newSet.delete(bundleId);
+      }
+      return newSet;
+    });
+
+    // Apply glow effect to bundle edges
+    const bundle = bundles.find(b => b.id === bundleId);
+    if (bundle) {
+      setEdges(eds => eds.map(edge => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        
+        if (sourceNode?.data.bundleId === bundleId && targetNode?.data.bundleId === bundleId) {
+          return {
+            ...edge,
+            style: {
+              ...edge.style,
+              stroke: isRunning ? '#3b82f6' : '#3b82f6',
+              strokeWidth: isRunning ? 4 : 2,
+              transition: 'all 0.3s ease-in-out',
+              filter: isRunning ? 'drop-shadow(0 0 8px #3b82f6)' : 'none',
+            },
+            animated: isRunning,
+          };
+        }
+        return edge;
+      }));
+    }
+  }, [setBundles, setRunningBundles, setEdges, bundles, nodes]);
+
   const runBundle = async (bundleId: string) => {
     const bundle = bundles.find(b => b.id === bundleId);
-    if (!bundle) return;
+    if (!bundle) {
+      addLog(`❌ Error: Bundle ${bundleId} not found`);
+      return;
+    }
 
-    setBundles(prev => prev.map(b => 
-      b.id === bundleId ? { ...b, isRunning: true } : b
-    ));
-
+    updateBundleRunningState(bundleId, true);
     setDebugExpanded(true);
 
     try {
       if (!toolhouseService.isInitialized()) {
         const initialized = await initializeToolhouse();
         if (!initialized) {
-          setBundles(prev => prev.map(b => 
-            b.id === bundleId ? { ...b, isRunning: false } : b
-          ));
+          updateBundleRunningState(bundleId, false);
           return;
         }
       }
@@ -375,9 +485,7 @@ const WorkflowBuilderInner: React.FC = () => {
           description: `No input node found in ${bundle.name}`,
           variant: "destructive"
         });
-        setBundles(prev => prev.map(b => 
-          b.id === bundleId ? { ...b, isRunning: false } : b
-        ));
+        updateBundleRunningState(bundleId, false);
         return;
       }
       
@@ -388,9 +496,7 @@ const WorkflowBuilderInner: React.FC = () => {
           description: `No output node found in ${bundle.name}`,
           variant: "destructive"
         });
-        setBundles(prev => prev.map(b => 
-          b.id === bundleId ? { ...b, isRunning: false } : b
-        ));
+        updateBundleRunningState(bundleId, false);
         return;
       }
       
@@ -411,6 +517,7 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
           
+          // Set processing state with glow effect
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -418,9 +525,14 @@ const WorkflowBuilderInner: React.FC = () => {
                   ...node, 
                   data: { 
                     ...node.data, 
-                    output: "🔄 Processing...",
+                    output: "",
                     isProcessing: true
-                  } 
+                  },
+                  style: {
+                    ...node.style,
+                    filter: 'drop-shadow(0 0 12px #3b82f6)',
+                    transition: 'all 0.3s ease-in-out'
+                  }
                 };
               }
               return node;
@@ -431,6 +543,7 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`✅ ${bundle.name} execution completed successfully`);
           
+          // Set success state
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -440,7 +553,12 @@ const WorkflowBuilderInner: React.FC = () => {
                     ...node.data, 
                     output: response,
                     isProcessing: false
-                  } 
+                  },
+                  style: {
+                    ...node.style,
+                    filter: 'none',
+                    transition: 'all 0.3s ease-in-out'
+                  }
                 };
               }
               return node;
@@ -471,7 +589,12 @@ const WorkflowBuilderInner: React.FC = () => {
                     ...node.data, 
                     output: `❌ Error: ${errorMessage}`,
                     isProcessing: false
-                  } 
+                  },
+                  style: {
+                    ...node.style,
+                    filter: 'none',
+                    transition: 'all 0.3s ease-in-out'
+                  }
                 };
               }
               return node;
@@ -486,9 +609,7 @@ const WorkflowBuilderInner: React.FC = () => {
         }
       }
     } finally {
-      setBundles(prev => prev.map(b => 
-        b.id === bundleId ? { ...b, isRunning: false } : b
-      ));
+      updateBundleRunningState(bundleId, false);
     }
   };
 
@@ -542,12 +663,36 @@ const WorkflowBuilderInner: React.FC = () => {
         target: outputNode.id,
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#3b82f6', strokeWidth: 2 }
+        style: { 
+          stroke: '#3b82f6', 
+          strokeWidth: 2,
+          transition: 'all 0.3s ease-in-out'
+        }
       };
       
       setEdges([newEdge]);
     }
   }, [nodes.length, handleNodeDelete, setNodes, setEdges]);
+
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // ESC to exit selection mode
+      if (event.key === 'Escape' && isSelectionMode) {
+        setIsSelectionMode(false);
+        setSelectedNodes([]);
+      }
+      
+      // Delete selected nodes
+      if (event.key === 'Delete' && selectedNodes.length > 0) {
+        selectedNodes.forEach(nodeId => handleNodeDelete(nodeId));
+        setSelectedNodes([]);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [isSelectionMode, selectedNodes, handleNodeDelete]);
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
@@ -654,8 +799,8 @@ const WorkflowBuilderInner: React.FC = () => {
                     selected: selectedNodes.includes(node.id)
                   }))}
                   edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
+                  onNodesChange={handleNodesChange}
+                  onEdgesChange={handleEdgesChange}
                   onConnect={onConnect}
                   onInit={setReactFlowInstance}
                   onDrop={onDrop}
@@ -669,6 +814,20 @@ const WorkflowBuilderInner: React.FC = () => {
                   multiSelectionKeyCode={null}
                   selectionOnDrag={false}
                   selectNodesOnDrag={false}
+                  connectionLineStyle={{
+                    stroke: '#3b82f6',
+                    strokeWidth: 2,
+                    strokeDasharray: '5,5',
+                  }}
+                  defaultEdgeOptions={{
+                    type: 'smoothstep',
+                    animated: false,
+                    style: { 
+                      stroke: '#3b82f6', 
+                      strokeWidth: 2,
+                      transition: 'all 0.3s ease-in-out'
+                    }
+                  }}
                 >
                   <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
                   <Background color="#e2e8f0" gap={16} size={1} />

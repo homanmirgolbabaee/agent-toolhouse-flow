@@ -113,6 +113,16 @@ const Node: React.FC<NodeProps> = ({ id, data, selected = false }) => {
     setIsDeleteDialogOpen(false);
   };
 
+  // Get bundle styling
+  const getBundleStyle = () => {
+    if (!data.bundleId) return {};
+    
+    return {
+      background: data.bundleId ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1))' : undefined,
+      border: data.bundleId ? '2px solid rgba(59, 130, 246, 0.3)' : undefined,
+    };
+  };
+
   return (
     <div 
       className={`
@@ -121,12 +131,22 @@ const Node: React.FC<NodeProps> = ({ id, data, selected = false }) => {
         min-w-[300px] max-w-[340px] backdrop-blur-sm
         ${selected ? 'ring-2 ring-blue-200 ring-opacity-60' : ''}
         ${isHovered ? 'transform scale-105' : 'transform scale-100'}
-        ${data.isProcessing ? 'animate-pulse' : ''}
+        ${data.isProcessing ? 'animate-pulse processing-node' : ''}
       `}
-      style={{ borderColor: style.borderColor }}
+      style={{ 
+        borderColor: style.borderColor,
+        ...getBundleStyle()
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Bundle Indicator */}
+      {data.bundleId && (
+        <div className="absolute -top-2 -left-2">
+          <div className="bundle-indicator"></div>
+        </div>
+      )}
+
       {/* Delete Button - appears on hover or selection */}
       {(isHovered || selected) && (
         <div className="absolute -top-2 -right-2 z-10">
@@ -185,6 +205,11 @@ const Node: React.FC<NodeProps> = ({ id, data, selected = false }) => {
               <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-xs">
                 <Sparkles className="h-3 w-3 mr-1" />
                 AI
+              </Badge>
+            )}
+            {data.bundleId && (
+              <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
+                Bundle
               </Badge>
             )}
           </div>
@@ -271,15 +296,6 @@ const Node: React.FC<NodeProps> = ({ id, data, selected = false }) => {
           </div>
         )}
       </div>
-      
-      {/* Bundle indicator */}
-      {data.bundleId && (
-        <div className="absolute -top-2 -left-2">
-          <div className="bg-white rounded-full p-1 shadow-sm border border-slate-200 animate-pulse">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
-          </div>
-        </div>
-      )}
       
       {/* Selection indicator */}
       {selected && (
