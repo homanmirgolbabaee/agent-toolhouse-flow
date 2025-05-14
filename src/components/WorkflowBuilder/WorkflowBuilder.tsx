@@ -122,6 +122,16 @@ const WorkflowBuilderInner: React.FC = () => {
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     event.stopPropagation();
     
+    // Check for Ctrl+Click for multi-selection
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedNodes(prev => 
+        prev.includes(node.id) 
+          ? prev.filter(id => id !== node.id)
+          : [...prev, node.id]
+      );
+      return;
+    }
+    
     if (isSelectionMode) {
       setSelectedNodes(prev => 
         prev.includes(node.id) 
@@ -129,6 +139,8 @@ const WorkflowBuilderInner: React.FC = () => {
           : [...prev, node.id]
       );
     } else {
+      // Clear multi-selection when clicking without Ctrl
+      setSelectedNodes([]);
       setSelectedNode(node);
     }
   }, [isSelectionMode]);
@@ -413,7 +425,7 @@ const WorkflowBuilderInner: React.FC = () => {
     }
   };
 
-  // Update bundle running state and apply glow effect
+  // Update bundle running state and apply glow effect to edges only
   const updateBundleRunningState = useCallback((bundleId: string, isRunning: boolean) => {
     setBundles(prev => prev.map(b => 
       b.id === bundleId ? { ...b, isRunning } : b
@@ -429,24 +441,30 @@ const WorkflowBuilderInner: React.FC = () => {
       return newSet;
     });
 
-    // Apply glow effect to bundle edges
+    // Apply animation effect only to bundle edges
     const bundle = bundles.find(b => b.id === bundleId);
     if (bundle) {
       setEdges(eds => eds.map(edge => {
         const sourceNode = nodes.find(n => n.id === edge.source);
         const targetNode = nodes.find(n => n.id === edge.target);
         
+        // Only animate edges that connect nodes within the same bundle
         if (sourceNode?.data.bundleId === bundleId && targetNode?.data.bundleId === bundleId) {
           return {
             ...edge,
+            className: isRunning ? 'bundle-running' : '',
             style: {
               ...edge.style,
-              stroke: isRunning ? '#3b82f6' : '#3b82f6',
-              strokeWidth: isRunning ? 4 : 2,
+              stroke: isRunning ? 'url(#bundleRunningGradient)' : 'url(#edgeGradient)',
+              strokeWidth: isRunning ? 4 : 3,
               transition: 'all 0.3s ease-in-out',
-              filter: isRunning ? 'drop-shadow(0 0 8px #3b82f6)' : 'none',
+              filter: isRunning ? 'drop-shadow(0 0 8px currentColor)' : 'none',
             },
             animated: isRunning,
+            data: {
+              ...edge.data,
+              isRunning,
+            }
           };
         }
         return edge;
@@ -517,7 +535,7 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
           
-          // Set processing state with glow effect
+          // Set processing state for output node (no glow effect on node)
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -527,11 +545,6 @@ const WorkflowBuilderInner: React.FC = () => {
                     ...node.data, 
                     output: "",
                     isProcessing: true
-                  },
-                  style: {
-                    ...node.style,
-                    filter: 'drop-shadow(0 0 12px #3b82f6)',
-                    transition: 'all 0.3s ease-in-out'
                   }
                 };
               }
@@ -543,7 +556,7 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`✅ ${bundle.name} execution completed successfully`);
           
-          // Set success state
+          // Set success state (remove processing state)
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -553,11 +566,6 @@ const WorkflowBuilderInner: React.FC = () => {
                     ...node.data, 
                     output: response,
                     isProcessing: false
-                  },
-                  style: {
-                    ...node.style,
-                    filter: 'none',
-                    transition: 'all 0.3s ease-in-out'
                   }
                 };
               }
@@ -677,22 +685,35 @@ const WorkflowBuilderInner: React.FC = () => {
   // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      // ESC to exit selection mode
-      if (event.key === 'Escape' && isSelectionMode) {
-        setIsSelectionMode(false);
+      // ESC to exit selection mode and clear selections
+      if (event.key === 'Escape') {
+        if (isSelectionMode) {
+          setIsSelectionMode(false);
+        }
         setSelectedNodes([]);
+        setSelectedNode(null);
       }
       
-      // Delete selected nodes
-      if (event.key === 'Delete' && selectedNodes.length > 0) {
-        selectedNodes.forEach(nodeId => handleNodeDelete(nodeId));
-        setSelectedNodes([]);
+      // Delete selected nodes (either multi-selection or single selection)
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        
+        // Delete multi-selected nodes
+        if (selectedNodes.length > 0) {
+          selectedNodes.forEach(nodeId => handleNodeDelete(nodeId));
+          setSelectedNodes([]);
+        }
+        // Delete single selected node
+        else if (selectedNode) {
+          handleNodeDelete(selectedNode.id);
+          setSelectedNode(null);
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [isSelectionMode, selectedNodes, handleNodeDelete]);
+  }, [isSelectionMode, selectedNodes, selectedNode, handleNodeDelete]);
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
@@ -796,7 +817,12 @@ const WorkflowBuilderInner: React.FC = () => {
                 <ReactFlow
                   nodes={nodes.map(node => ({
                     ...node,
-                    selected: selectedNodes.includes(node.id)
+                    selected: selectedNodes.includes(node.id) || selectedNode?.id === node.id,
+                    data: {
+                      ...node.data,
+                      isMultiSelected: selectedNodes.includes(node.id),
+                      isSingleSelected: selectedNode?.id === node.id,
+                    }
                   }))}
                   edges={edges}
                   onNodesChange={handleNodesChange}
@@ -811,20 +837,24 @@ const WorkflowBuilderInner: React.FC = () => {
                   connectionLineType={ConnectionLineType.SmoothStep}
                   fitView
                   className="bg-slate-50"
-                  multiSelectionKeyCode={null}
+                  multiSelectionKeyCode={['Meta', 'Ctrl']}
                   selectionOnDrag={false}
                   selectNodesOnDrag={false}
                   connectionLineStyle={{
                     stroke: '#3b82f6',
-                    strokeWidth: 2,
-                    strokeDasharray: '5,5',
+                    strokeWidth: 3,
+                    strokeDasharray: 'none',
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round',
                   }}
                   defaultEdgeOptions={{
                     type: 'smoothstep',
                     animated: false,
                     style: { 
-                      stroke: '#3b82f6', 
-                      strokeWidth: 2,
+                      stroke: '#6366f1', 
+                      strokeWidth: 3,
+                      strokeLinecap: 'round',
+                      strokeLinejoin: 'round',
                       transition: 'all 0.3s ease-in-out'
                     }
                   }}
@@ -834,14 +864,56 @@ const WorkflowBuilderInner: React.FC = () => {
                   <MiniMap 
                     className="bg-white border border-slate-200 rounded-lg shadow-sm" 
                     nodeColor={(node) => {
-                      if (node.data.type === 'toolhouseInput') return '#3b82f6';
+                      if (node.data.type === 'toolhouseInput') return '#6366f1';
                       if (node.data.type === 'outputNode') return '#8b5cf6';
                       return '#64748b';
                     }}
                   />
+                  
+                  {/* SVG Definitions for Gradients */}
+                  <svg style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0 }}>
+                    <defs>
+                      <linearGradient id="edgeGradient" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#4f46e5" />
+                        <stop offset="100%" stopColor="#7c3aed" />
+                      </linearGradient>
+                      
+                      <linearGradient id="selectedEdgeGradient" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="50%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                      
+                      <linearGradient id="connectionGradient" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="50%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                      
+                      <linearGradient id="bundleRunningGradient" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.9" />
+                        <stop offset="25%" stopColor="#3b82f6" stopOpacity="1" />
+                        <stop offset="75%" stopColor="#6366f1" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.9" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  
                   <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-                    <div className="text-xs text-slate-600">
-                      {isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}
+                    <div className="text-xs text-slate-600 flex items-center gap-4">
+                      <span>
+                        {isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}
+                      </span>
+                      {(selectedNodes.length > 0 || selectedNode) && (
+                        <span className="text-blue-600 font-medium">
+                          {selectedNodes.length > 0 
+                            ? `${selectedNodes.length} nodes selected` 
+                            : '1 node selected'} 
+                          - Press DEL to delete
+                        </span>
+                      )}
+                      <span className="text-slate-400">•</span>
+                      <span>Ctrl+Click for multi-select</span>
                     </div>
                   </Panel>
                 </ReactFlow>
