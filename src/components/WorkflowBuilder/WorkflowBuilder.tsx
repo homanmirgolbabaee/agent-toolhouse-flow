@@ -22,12 +22,14 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Sparkles, RefreshCw, Group, Square, CheckSquare, Link, Zap } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, Group, Square, CheckSquare, Link, Zap, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { toast } from 'sonner';
 import { useToast } from '@/hooks/use-toast';
 import BundlesPanel from './NodePanel';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
+import NodePropertiesAdvanced from './NodeProperties';
 
 interface Bundle {
   id: string;
@@ -66,6 +68,7 @@ const WorkflowBuilderInner: React.FC = () => {
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [nextBundleId, setNextBundleId] = useState(1);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   const { getNodes } = useReactFlow();
 
@@ -421,6 +424,12 @@ const WorkflowBuilderInner: React.FC = () => {
             })
           );
           
+          // Auto-expand right panel and select output node when processing is complete
+          if (rightPanelCollapsed) {
+            setRightPanelCollapsed(false);
+          }
+          setSelectedNode(outputNode);
+          
           uiToast({
             title: "Bundle Complete",
             description: `Successfully executed ${bundle.name}`,
@@ -516,7 +525,7 @@ const WorkflowBuilderInner: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
-      {/* Cleaner Header */}
+      {/* Header */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -550,46 +559,26 @@ const WorkflowBuilderInner: React.FC = () => {
               />
             </div>
             
-            {/* Bundle Controls */}
-            <div className="flex items-center gap-2">
-              <Button 
-                onClick={toggleSelectionMode}
-                size="sm" 
-                variant={isSelectionMode ? "default" : "outline"}
-                className="h-9"
-              >
-                {isSelectionMode ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
-                {isSelectionMode ? "Exit Select" : "Select"}
-              </Button>
-              
-              {selectedNodes.length > 0 && (
-                <>
-                  <Button 
-                    onClick={createBundle}
-                    size="sm" 
-                    variant="outline"
-                    className="h-9"
-                  >
-                    <Group className="w-4 h-4 mr-2" />
-                    Bundle ({selectedNodes.length})
-                  </Button>
-                  <Button 
-                    onClick={clearSelection}
-                    size="sm" 
-                    variant="ghost"
-                    className="h-9"
-                  >
-                    Clear
-                  </Button>
-                </>
+            {/* Panel Toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+              className="h-9"
+              title={rightPanelCollapsed ? "Show properties panel" : "Hide properties panel"}
+            >
+              {rightPanelCollapsed ? (
+                <PanelRightOpen className="w-4 h-4" />
+              ) : (
+                <PanelRightClose className="w-4 h-4" />
               )}
-            </div>
+            </Button>
             
             {/* Run Button */}
             <Button 
               onClick={runWorkflow} 
               size="sm" 
-              disabled={isProcessing}
+              disabled={isProcessing || bundles.length === 0}
               className="h-9 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
             >
               {isProcessing ? (
@@ -600,129 +589,102 @@ const WorkflowBuilderInner: React.FC = () => {
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
-                  Run All
+                  Run All Bundles
                 </>
               )}
             </Button>
           </div>
         </div>
-        
-        {/* Bundle Bar */}
-        {bundles.length > 0 && (
-          <div className="border-t border-slate-100 p-3 flex gap-2 overflow-x-auto">
-            {bundles.map((bundle) => (
-              <div 
-                key={bundle.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white"
-                style={{ borderLeftColor: bundle.color, borderLeftWidth: '3px' }}
-              >
-                <Group className="w-4 h-4 text-slate-600" />
-                <span className="text-sm font-medium text-slate-700">{bundle.name}</span>
-                <span className="text-xs text-slate-500">({bundle.nodeIds.length} nodes)</span>
-                <Button
-                  onClick={() => runBundle(bundle.id)}
-                  disabled={bundle.isRunning}
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0"
-                >
-                  {bundle.isRunning ? (
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Play className="w-3 h-3" />
-                  )}
-                </Button>
-                <Button
-                  onClick={() => deleteBundle(bundle.id)}
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                >
-                  ×
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-{/* Main Content */}
+      {/* Main Content with Resizable Panels */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Sidebar - Bundle Management */}
-        <div className="w-80 border-r border-slate-200 bg-white">
-          <BundlesPanel 
-            onDragStart={onDragStart}
-            bundles={bundles}
-            onRunBundle={runBundle}
-            onDeleteBundle={deleteBundle}
-            selectedNodes={selectedNodes}
-            onCreateBundle={createBundle}
-            isSelectionMode={isSelectionMode}
-            onToggleSelectionMode={toggleSelectionMode}
-            onClearSelection={clearSelection}
-          />
-        </div>
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          {/* Left Sidebar - Bundle Management */}
+          <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+            <BundlesPanel 
+              onDragStart={onDragStart}
+              bundles={bundles}
+              onRunBundle={runBundle}
+              onDeleteBundle={deleteBundle}
+              selectedNodes={selectedNodes}
+              onCreateBundle={createBundle}
+              isSelectionMode={isSelectionMode}
+              onToggleSelectionMode={toggleSelectionMode}
+              onClearSelection={clearSelection}
+            />
+          </ResizablePanel>
 
-        {/* Canvas */}
-        <div className="flex-1 flex flex-col">
-          <div ref={reactFlowWrapper} className="flex-1">
-            <ReactFlow
-              nodes={nodes.map(node => ({
-                ...node,
-                selected: selectedNodes.includes(node.id)
-              }))}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onInit={setReactFlowInstance}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onNodeClick={onNodeClick}
-              onPaneClick={onPaneClick}
-              nodeTypes={nodeTypes}
-              connectionLineType={ConnectionLineType.SmoothStep}
-              fitView
-              className="bg-slate-50"
-              multiSelectionKeyCode={null}
-              selectionOnDrag={false}
-              selectNodesOnDrag={false}
-            >
-              <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
-              <Background color="#e2e8f0" gap={16} size={1} />
-              <MiniMap 
-                className="bg-white border border-slate-200 rounded-lg shadow-sm" 
-                nodeColor={(node) => {
-                  if (node.data.type === 'toolhouseInput') return '#3b82f6';
-                  if (node.data.type === 'outputNode') return '#8b5cf6';
-                  return '#64748b';
-                }}
+          <ResizableHandle withHandle />
+
+          {/* Canvas Area */}
+          <ResizablePanel defaultSize={rightPanelCollapsed ? 75 : 50}>
+            <div className="h-full flex flex-col">
+              <div ref={reactFlowWrapper} className="flex-1">
+                <ReactFlow
+                  nodes={nodes.map(node => ({
+                    ...node,
+                    selected: selectedNodes.includes(node.id)
+                  }))}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  onInit={setReactFlowInstance}
+                  onDrop={onDrop}
+                  onDragOver={onDragOver}
+                  onNodeClick={onNodeClick}
+                  onPaneClick={onPaneClick}
+                  nodeTypes={nodeTypes}
+                  connectionLineType={ConnectionLineType.SmoothStep}
+                  fitView
+                  className="bg-slate-50"
+                  multiSelectionKeyCode={null}
+                  selectionOnDrag={false}
+                  selectNodesOnDrag={false}
+                >
+                  <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
+                  <Background color="#e2e8f0" gap={16} size={1} />
+                  <MiniMap 
+                    className="bg-white border border-slate-200 rounded-lg shadow-sm" 
+                    nodeColor={(node) => {
+                      if (node.data.type === 'toolhouseInput') return '#3b82f6';
+                      if (node.data.type === 'outputNode') return '#8b5cf6';
+                      return '#64748b';
+                    }}
+                  />
+                  <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
+                    <div className="text-xs flex items-center gap-3 text-slate-600">
+                      <Link className="w-4 h-4" /> 
+                      <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}</span>
+                      <span className="inline-flex items-center gap-1 text-blue-600">
+                        <Zap className="w-3 h-3" />
+                        Powered by Toolhouse
+                      </span>
+                    </div>
+                  </Panel>
+                </ReactFlow>
+              </div>
+              
+              {/* Debug Panel */}
+              <DebugPanel 
+                logs={logs} 
+                expanded={debugExpanded}
+                onToggleExpand={() => setDebugExpanded(!debugExpanded)} 
               />
-              <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-                <div className="text-xs flex items-center gap-3 text-slate-600">
-                  <Link className="w-4 h-4" /> 
-                  <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}</span>
-                  <span className="inline-flex items-center gap-1 text-blue-600">
-                    <Zap className="w-3 h-3" />
-                    Powered by Toolhouse
-                  </span>
-                </div>
-              </Panel>
-            </ReactFlow>
-          </div>
-          
-          {/* Debug Panel */}
-          <DebugPanel 
-            logs={logs} 
-            expanded={debugExpanded}
-            onToggleExpand={() => setDebugExpanded(!debugExpanded)} 
-          />
-        </div>
+            </div>
+          </ResizablePanel>
 
-        {/* Right Sidebar - Properties */}
-        <div className="w-80 border-l border-slate-200 bg-white">
-          <NodeProperties node={selectedNode} onUpdateNode={updateNode} />
-        </div>
+          {/* Right Sidebar - Properties */}
+          {!rightPanelCollapsed && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+                <NodePropertiesAdvanced node={selectedNode} onUpdateNode={updateNode} />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
       </div>
     </div>
   );

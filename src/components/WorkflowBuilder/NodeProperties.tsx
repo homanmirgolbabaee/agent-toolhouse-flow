@@ -5,8 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
-  Eye, 
-  EyeOff, 
   RefreshCw, 
   Copy, 
   CheckCircle, 
@@ -21,12 +19,18 @@ import {
   Settings,
   ExternalLink,
   Maximize2,
-  Minimize2
+  Minimize2,
+  PanelTop,
+  PanelBottom,
+  MoreHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import MarkdownRenderer from './MarkdownRenderer';
 
 interface NodePropertiesProps {
@@ -34,11 +38,13 @@ interface NodePropertiesProps {
   onUpdateNode: (nodeId: string, data: any) => void;
 }
 
-const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) => {
+const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCopied, setIsCopied] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [activeTab, setActiveTab] = useState('output');
+  const [panelLayout, setPanelLayout] = useState<'horizontal' | 'vertical'>('vertical');
 
   useEffect(() => {
     if (node) {
@@ -102,8 +108,8 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
           <div className="text-center">
             <div className="bg-slate-50 rounded-xl p-8 border border-slate-100">
               <Sparkles className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-sm text-slate-600 font-medium">Select a node to edit its properties</p>
-              <p className="text-xs text-slate-500 mt-2">Click on any node in the canvas to get started</p>
+              <p className="text-sm text-slate-600 font-medium">Select a node to view its properties</p>
+              <p className="text-xs text-slate-500 mt-2">Click on any node in the canvas</p>
             </div>
           </div>
         </CardContent>
@@ -155,170 +161,148 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
     </div>
   );
 
-  const renderOutputDisplay = () => (
-    <div className="space-y-4">
-      {/* Header with actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-semibold text-slate-700">
-            Output
-          </Label>
-          {hasOutput && (
-            <Badge variant="secondary" className="bg-green-50 text-green-700 text-xs">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Ready
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-1">
-          {node.data.isProcessing && (
-            <div className="flex items-center gap-2 text-blue-600 mr-2">
-              <RefreshCw className="h-3 w-3 animate-spin" />
-              <span className="text-xs font-medium">Processing...</span>
-            </div>
-          )}
-          
-          {hasOutput && (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={copyToClipboard}
-                className="h-8 w-8 p-0 hover:bg-slate-100"
-                title="Copy to clipboard"
-              >
-                {isCopied ? (
-                  <CheckCircle className="h-3 w-3 text-green-500" />
-                ) : (
-                  <Copy className="h-3 w-3 text-slate-500" />
-                )}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={downloadOutput}
-                className="h-8 w-8 p-0 hover:bg-slate-100"
-                title="Download as markdown"
-              >
-                <Download className="h-3 w-3 text-slate-500" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={shareOutput}
-                className="h-8 w-8 p-0 hover:bg-slate-100"
-                title="Share output"
-              >
-                <Share className="h-3 w-3 text-slate-500" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {}}
-                className="h-8 w-8 p-0 hover:bg-slate-100"
-                title="Send via email"
-              >
-                <Mail className="h-3 w-3 text-slate-500" />
-              </Button>
-              
-              <Separator orientation="vertical" className="h-6 mx-1" />
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsFullScreen(!isFullScreen)}
-                className="h-8 w-8 p-0 hover:bg-slate-100"
-                title={isFullScreen ? "Exit fullscreen" : "Fullscreen view"}
-              >
-                {isFullScreen ? (
-                  <Minimize2 className="h-3 w-3 text-slate-500" />
-                ) : (
-                  <Maximize2 className="h-3 w-3 text-slate-500" />
-                )}
-              </Button>
-            </div>
-          )}
-          
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 ml-2 hover:bg-slate-100">
-                {isExpanded ? (
-                  <ChevronUp className="h-3 w-3 text-slate-500" />
-                ) : (
-                  <ChevronDown className="h-3 w-3 text-slate-500" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
-        </div>
+  const renderOutputToolbar = () => (
+    <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-slate-50">
+      <div className="flex items-center gap-2">
+        <Label className="text-sm font-semibold text-slate-700">
+          Output
+        </Label>
+        {hasOutput && (
+          <Badge variant="secondary" className="bg-green-50 text-green-700 text-xs">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Ready
+          </Badge>
+        )}
+        {node.data.isProcessing && (
+          <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-xs">
+            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+            Processing
+          </Badge>
+        )}
       </div>
       
-      {/* Output content */}
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleContent>
-          {node.data.isProcessing ? (
-            <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 p-8 border-blue-200">
-              <div className="flex flex-col items-center justify-center text-center">
-                <RefreshCw className="h-10 w-10 mb-4 animate-spin text-blue-500" />
-                <span className="text-base font-medium text-blue-700 mb-2">Processing your request...</span>
-                <p className="text-sm text-blue-600">This may take a few moments</p>
-                <div className="mt-4 w-full max-w-xs bg-blue-100 rounded-full h-2 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          ) : hasOutput ? (
-            <div className="rounded-lg border bg-white border-slate-200 overflow-hidden">
-              <div className="border-b border-slate-100 p-3 bg-slate-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-sm font-medium text-slate-700">Output Generated</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
-                    <span>{new Date().toLocaleTimeString()}</span>
-                    <Badge variant="outline" className="text-xs">
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Links Active
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              <ScrollArea className={`${isFullScreen ? 'h-[70vh]' : 'max-h-[500px]'} p-6`}>
-                <div className="prose prose-slate max-w-none">
-                  <MarkdownRenderer 
-                    content={node.data.output} 
-                    className="text-slate-700"
-                  />
-                </div>
-              </ScrollArea>
-            </div>
+      <div className="flex items-center gap-1">
+        {hasOutput && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={copyToClipboard}
+              className="h-8 w-8 p-0 hover:bg-white"
+              title="Copy to clipboard"
+            >
+              {isCopied ? (
+                <CheckCircle className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3 text-slate-500" />
+              )}
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-white"
+                >
+                  <MoreHorizontal className="h-3 w-3 text-slate-500" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="bottom">
+                <DropdownMenuItem onClick={downloadOutput}>
+                  <Download className="h-3 w-3 mr-2" />
+                  Download as Markdown
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={shareOutput}>
+                  <Share className="h-3 w-3 mr-2" />
+                  Share Output
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => console.log('Email functionality')}>
+                  <Mail className="h-3 w-3 mr-2" />
+                  Send via Email
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setPanelLayout(panelLayout === 'vertical' ? 'horizontal' : 'vertical')}>
+                  {panelLayout === 'vertical' ? (
+                    <>
+                      <PanelTop className="h-3 w-3 mr-2" />
+                      Horizontal Layout
+                    </>
+                  ) : (
+                    <>
+                      <PanelBottom className="h-3 w-3 mr-2" />
+                      Vertical Layout
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Separator orientation="vertical" className="h-6 mx-1" />
+          </>
+        )}
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsFullScreen(!isFullScreen)}
+          className="h-8 w-8 p-0 hover:bg-white"
+          title={isFullScreen ? "Exit fullscreen" : "Fullscreen view"}
+        >
+          {isFullScreen ? (
+            <Minimize2 className="h-3 w-3 text-slate-500" />
           ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-12">
-              <div className="text-center">
-                <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-4 shadow-sm">
-                  <FileText className="h-12 w-12 text-slate-400" />
-                </div>
-                <p className="text-base font-medium text-slate-600 mb-2">No output yet</p>
-                <p className="text-sm text-slate-500">Run the workflow to generate output</p>
+            <Maximize2 className="h-3 w-3 text-slate-500" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderOutputContent = () => (
+    <div className="h-full flex flex-col">
+      {renderOutputToolbar()}
+      
+      {node.data.isProcessing ? (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center">
+            <RefreshCw className="h-12 w-12 mb-4 animate-spin text-blue-500 mx-auto" />
+            <span className="text-lg font-medium text-blue-700 block mb-2">Processing your request...</span>
+            <p className="text-sm text-blue-600">This may take a few moments</p>
+            <div className="mt-4 w-64 bg-blue-100 rounded-full h-2 overflow-hidden mx-auto">
+              <div className="h-full bg-blue-500 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      ) : hasOutput ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-slate-100 bg-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium text-slate-700">Output Generated</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span>{new Date().toLocaleTimeString()}</span>
+                <Badge variant="outline" className="text-xs">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Links Active
+                </Badge>
               </div>
             </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Enhanced quick actions */}
-      {hasOutput && (
-        <div className="pt-4 border-t border-slate-100">
-          <div className="bg-slate-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-slate-700">Quick Actions</p>
-              <span className="text-xs text-slate-500">Right-click links to open in new tab</span>
+          </div>
+          
+          <ScrollArea className={`flex-1 p-4 ${isFullScreen ? 'h-[80vh]' : ''}`}>
+            <div className="prose prose-slate max-w-none">
+              <MarkdownRenderer 
+                content={node.data.output} 
+                className="text-slate-700"
+              />
             </div>
+          </ScrollArea>
+          
+          {/* Quick Actions */}
+          <div className="border-t border-slate-100 p-3 bg-slate-50">
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
@@ -327,7 +311,7 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
                 className="h-9 text-sm justify-start"
               >
                 <Copy className="h-4 w-4 mr-2" />
-                Copy Text
+                Copy
               </Button>
               <Button
                 variant="outline"
@@ -338,60 +322,44 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={shareOutput}
-                className="h-9 text-sm justify-start"
-              >
-                <Share className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Email functionality placeholder
-                  console.log('Email functionality to be implemented');
-                }}
-                className="h-9 text-sm justify-start"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Send Email
-              </Button>
             </div>
-            
-            {/* Additional info */}
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              <div className="flex items-center gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  Links are clickable
-                </span>
-                <span className="flex items-center gap-1">
-                  <Code className="h-3 w-3" />
-                  Markdown formatted
-                </span>
-              </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="bg-slate-100 rounded-full p-4 w-20 h-20 mx-auto mb-4">
+              <FileText className="h-12 w-12 text-slate-400" />
             </div>
+            <p className="text-base font-medium text-slate-600 mb-2">No output yet</p>
+            <p className="text-sm text-slate-500">Run the workflow to generate output</p>
           </div>
         </div>
       )}
     </div>
   );
 
-  const renderFields = () => {
-    if (isInputNode) {
-      return renderInputFields();
-    } else if (isOutputNode) {
-      return renderOutputDisplay();
-    }
-    return (
-      <div className="text-center py-8">
-        <p className="text-sm text-slate-500">No editable properties</p>
+  const renderMetadata = () => (
+    <div className="p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-slate-700">Node Information</h3>
+      <div className="space-y-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-slate-500">Type:</span>
+          <span className="text-slate-700 font-medium">{node.data.type}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">ID:</span>
+          <span className="text-slate-700 font-mono">{node.id}</span>
+        </div>
+        {node.data.bundleId && (
+          <div className="flex justify-between">
+            <span className="text-slate-500">Bundle:</span>
+            <span className="text-slate-700 font-medium">{node.data.bundleId}</span>
+          </div>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
 
   const getHeaderIcon = () => {
     if (isInputNode) return <Sparkles className="h-4 w-4 text-blue-500" />;
@@ -399,6 +367,74 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
     return <Settings className="h-4 w-4 text-slate-500" />;
   };
 
+  // For output nodes, use a specialized layout
+  if (isOutputNode) {
+    return (
+      <Card className="w-full h-full bg-white border-0 flex flex-col overflow-hidden">
+        <CardHeader className="bg-slate-50 py-4 border-b border-slate-100 flex-shrink-0">
+          <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
+            {getHeaderIcon()}
+            Properties: {node.data.label}
+          </CardTitle>
+        </CardHeader>
+        
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup direction={panelLayout} className="h-full">
+            {/* Main output panel */}
+            <ResizablePanel defaultSize={75} minSize={50}>
+              {renderOutputContent()}
+            </ResizablePanel>
+            
+            <ResizableHandle withHandle />
+            
+            {/* Metadata panel */}
+            <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                <TabsList className="grid w-full grid-cols-2 m-2">
+                  <TabsTrigger value="output" className="text-xs">Output</TabsTrigger>
+                  <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
+                </TabsList>
+                <TabsContent value="output" className="flex-1 mt-0">
+                  <div className="p-3 space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-700">Output Details</h3>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Status:</span>
+                        <Badge variant={hasOutput ? "default" : "secondary"} className="text-xs">
+                          {hasOutput ? "Ready" : "Waiting"}
+                        </Badge>
+                      </div>
+                      {hasOutput && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Length:</span>
+                            <span className="text-slate-700">{node.data.output.length} chars</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Words:</span>
+                            <span className="text-slate-700">{node.data.output.split(' ').length}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Lines:</span>
+                            <span className="text-slate-700">{node.data.output.split('\n').length}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="info" className="flex-1 mt-0">
+                  {renderMetadata()}
+                </TabsContent>
+              </Tabs>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+      </Card>
+    );
+  }
+
+  // For input nodes and others, use the standard layout
   return (
     <Card className="w-full h-full bg-white border-0">
       <CardHeader className="bg-slate-50 py-4 border-b border-slate-100">
@@ -411,10 +447,14 @@ const NodeProperties: React.FC<NodePropertiesProps> = ({ node, onUpdateNode }) =
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        {renderFields()}
+        {isInputNode ? renderInputFields() : (
+          <div className="text-center py-8">
+            <p className="text-sm text-slate-500">No editable properties</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 };
 
-export default NodeProperties;
+export default NodePropertiesAdvanced;
