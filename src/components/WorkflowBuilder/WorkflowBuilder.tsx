@@ -23,12 +23,15 @@ import CustomNode from './Node';
 import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
+import YamlFileUpload from './YamlFileUpload';
 import { Button } from '@/components/ui/button';
-import { Play, Sparkles, RefreshCw, PanelRightOpen, PanelRightClose, Zap } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, PanelRightOpen, PanelRightClose, Zap, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
+import yamlService, { ParsedAgent } from '../../services/ToolhouseYamlService';
 import { useToast } from '@/hooks/use-toast';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Bundle {
   id: string;
@@ -69,6 +72,7 @@ const WorkflowBuilderInner: React.FC = () => {
   const [nextBundleId, setNextBundleId] = useState(1);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [runningBundles, setRunningBundles] = useState<Set<string>>(new Set());
+  const [isYamlDialogOpen, setIsYamlDialogOpen] = useState(false);
 
   // Custom node change handler to maintain bundle relationships
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
@@ -199,6 +203,12 @@ const WorkflowBuilderInner: React.FC = () => {
           prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.", 
           model: "gpt-4o-mini" 
         };
+      case 'yamlAgentNode':
+        return {
+          agentConfig: null,
+          variables: {},
+          model: "gpt-4o-mini"
+        };
       default:
         return {};
     }
@@ -212,9 +222,11 @@ const WorkflowBuilderInner: React.FC = () => {
   const getNodeLabel = (type: string): string => {
     switch (type) {
       case 'toolhouseInput':
-        return 'Input';
+        return 'AI Input';
       case 'outputNode':
         return 'Output';
+      case 'yamlAgentNode':
+        return 'YAML Agent';
       default:
         return 'Node';
     }
@@ -259,6 +271,78 @@ const WorkflowBuilderInner: React.FC = () => {
     setLogs((prevLogs) => [`[${timestamp}] ${message}`, ...prevLogs]);
   };
 
+  // Handle YAML file upload
+  const handleYamlParsed = useCallback((parsedAgent: ParsedAgent) => {
+    const { config, variables } = parsedAgent;
+    
+    // Create a new YAML agent node
+    const position = { x: 200, y: 150 };
+    
+    const yamlAgentNode = {
+      id: `yamlAgent_${Date.now()}`,
+      type: 'customNode',
+      position,
+      data: {
+        label: config.title || 'YAML Agent',
+        type: 'yamlAgentNode',
+        config: {
+          agentConfig: config,
+          variables: variables.reduce((acc, v) => ({ ...acc, [v.name]: v.value }), {}),
+          model: 'gpt-4o-mini'
+        },
+        bundleId: null,
+        onDelete: handleNodeDelete
+      },
+    };
+
+    // Create an output node for the YAML agent
+    const outputNode = {
+      id: `output_${Date.now()}`,
+      type: 'customNode',
+      position: { x: position.x, y: position.y + 200 },
+      data: {
+        label: 'Output',
+        type: 'outputNode',
+        config: {},
+        bundleId: null,
+        onDelete: handleNodeDelete
+      },
+    };
+
+    // Create an edge connecting them
+    const edge = {
+      id: `edge-${yamlAgentNode.id}-${outputNode.id}`,
+      source: yamlAgentNode.id,
+      target: outputNode.id,
+      type: 'smoothstep',
+      animated: true,
+      style: { 
+        stroke: 'url(#edgeGradient)', 
+        strokeWidth: 3,
+        transition: 'all 0.3s ease-in-out'
+      }
+    };
+
+    setNodes((nds) => [...nds, yamlAgentNode, outputNode]);
+    setEdges((eds) => [...eds, edge]);
+    setIsYamlDialogOpen(false);
+
+    addLog(`✅ YAML agent "${config.title}" loaded successfully`);
+    uiToast({
+      title: "YAML Agent Loaded",
+      description: `Agent "${config.title}" has been added to the workflow`,
+    });
+  }, [setNodes, setEdges, handleNodeDelete, addLog, uiToast]);
+
+  const handleYamlError = useCallback((error: string) => {
+    addLog(`❌ YAML upload error: ${error}`);
+    uiToast({
+      title: "YAML Upload Error",
+      description: error,
+      variant: "destructive"
+    });
+  }, [addLog, uiToast]);
+
   const createBundle = (selectedColor?: { name: string; color: string; light: string }) => {
     if (selectedNodes.length === 0) {
       uiToast({
@@ -270,9 +354,9 @@ const WorkflowBuilderInner: React.FC = () => {
     }
 
     // Check if selected nodes form a valid workflow
-    const inputNodes = selectedNodes.filter(nodeId => {
+    const agentNodes = selectedNodes.filter(nodeId => {
       const node = nodes.find(n => n.id === nodeId);
-      return node?.data.type === 'toolhouseInput';
+      return node?.data.type === 'toolhouseInput' || node?.data.type === 'yamlAgentNode';
     });
 
     const outputNodes = selectedNodes.filter(nodeId => {
@@ -280,10 +364,10 @@ const WorkflowBuilderInner: React.FC = () => {
       return node?.data.type === 'outputNode';
     });
 
-    if (inputNodes.length === 0 || outputNodes.length === 0) {
+    if (agentNodes.length === 0 || outputNodes.length === 0) {
       uiToast({
         title: "Invalid Bundle",
-        description: "A bundle must contain at least one input and one output node",
+        description: "A bundle must contain at least one agent (Input/YAML) and one output node",
         variant: "destructive"
       });
       return;
@@ -396,8 +480,8 @@ const WorkflowBuilderInner: React.FC = () => {
     }));
   };
 
-  const findNodesByType = (nodeIds: string[], type: string) => {
-    return nodes.filter(node => nodeIds.includes(node.id) && node.data.type === type);
+  const findNodesByType = (nodeIds: string[], types: string[]) => {
+    return nodes.filter(node => nodeIds.includes(node.id) && types.includes(node.data.type));
   };
 
   const getConnectedNodes = (nodeId: string, direction: 'source' | 'target') => {
@@ -517,14 +601,15 @@ const WorkflowBuilderInner: React.FC = () => {
       
       addLog(`🚀 Running ${bundle.name}...`);
       
-      const inputNodes = findNodesByType(bundle.nodeIds, 'toolhouseInput');
-      const outputNodes = findNodesByType(bundle.nodeIds, 'outputNode');
+      // Find agent nodes (both toolhouseInput and yamlAgentNode)
+      const agentNodes = findNodesByType(bundle.nodeIds, ['toolhouseInput', 'yamlAgentNode']);
+      const outputNodes = findNodesByType(bundle.nodeIds, ['outputNode']);
       
-      if (inputNodes.length === 0) {
-        addLog(`❌ Error: No input node found in ${bundle.name}`);
+      if (agentNodes.length === 0) {
+        addLog(`❌ Error: No agent node found in ${bundle.name}`);
         uiToast({
-          title: "Missing Input",
-          description: `No input node found in ${bundle.name}`,
+          title: "Missing Agent",
+          description: `No agent node found in ${bundle.name}`,
           variant: "destructive"
         });
         updateBundleRunningState(bundleId, false);
@@ -542,22 +627,20 @@ const WorkflowBuilderInner: React.FC = () => {
         return;
       }
       
-      for (const inputNode of inputNodes) {
-        const connectedOutputs = getConnectedNodes(inputNode.id, 'source');
+      for (const agentNode of agentNodes) {
+        const connectedOutputs = getConnectedNodes(agentNode.id, 'source');
         const outputNode = connectedOutputs.find(node => 
           node.data.type === 'outputNode' && bundle.nodeIds.includes(node.id)
         );
         
         if (!outputNode) {
-          addLog(`❌ Error: Input node in ${bundle.name} is not connected to an output node`);
+          addLog(`❌ Error: Agent node in ${bundle.name} is not connected to an output node`);
           continue;
         }
         
         try {
-          const prompt = inputNode.data.config.prompt;
-          const model = inputNode.data.config.model || 'gpt-4o-mini';
-          
-          addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
+          let response: string;
+          const model = agentNode.data.config.model || 'gpt-4o-mini';
           
           // Set processing state for output node
           setNodes((nds) =>
@@ -576,7 +659,22 @@ const WorkflowBuilderInner: React.FC = () => {
             })
           );
           
-          const response = await toolhouseService.processToolhouseWorkflow(prompt, model);
+          // Handle different agent types
+          if (agentNode.data.type === 'yamlAgentNode') {
+            // Handle YAML agent
+            const { agentConfig, variables } = agentNode.data.config;
+            if (!agentConfig) {
+              throw new Error('No agent configuration found in YAML node');
+            }
+            
+            addLog(`🤖 Running YAML agent: ${agentConfig.title}`);
+            response = await toolhouseService.runToolhouseAgent(agentConfig, variables, model);
+          } else {
+            // Handle regular toolhouse input
+            const prompt = agentNode.data.config.prompt;
+            addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
+            response = await toolhouseService.processToolhouseWorkflow(prompt, model);
+          }
           
           addLog(`✅ ${bundle.name} execution completed successfully`);
           
@@ -663,7 +761,7 @@ const WorkflowBuilderInner: React.FC = () => {
         type: 'customNode',
         position: { x: 200, y: 150 },
         data: { 
-          label: 'Input',
+          label: 'AI Input',
           type: 'toolhouseInput',
           config: { 
             prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.",
@@ -757,6 +855,25 @@ const WorkflowBuilderInner: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            {/* YAML Upload Button */}
+            <Dialog open={isYamlDialogOpen} onOpenChange={setIsYamlDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload YAML
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Upload Toolhouse Agent YAML</DialogTitle>
+                </DialogHeader>
+                <YamlFileUpload 
+                  onYamlParsed={handleYamlParsed}
+                  onError={handleYamlError}
+                />
+              </DialogContent>
+            </Dialog>
+            
             {/* API Keys */}
             <div className="flex gap-3">
               <Input
@@ -892,6 +1009,7 @@ const WorkflowBuilderInner: React.FC = () => {
                     nodeColor={(node) => {
                       if (node.data.type === 'toolhouseInput') return '#6366f1';
                       if (node.data.type === 'outputNode') return '#8b5cf6';
+                      if (node.data.type === 'yamlAgentNode') return '#10b981';
                       return '#64748b';
                     }}
                     maskColor="rgba(0, 0, 0, 0.1)"
@@ -929,7 +1047,7 @@ const WorkflowBuilderInner: React.FC = () => {
                   <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
                     <div className="text-xs text-slate-600 flex items-center gap-4">
                       <span>
-                        {isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}
+                        {isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar or upload YAML files'}
                       </span>
                       {(selectedNodes.length > 0 || selectedNode) && (
                         <span className="text-blue-600 font-medium">

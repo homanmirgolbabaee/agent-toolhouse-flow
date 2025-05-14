@@ -369,92 +369,43 @@ const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateN
 
   // For output nodes, use a specialized layout
   if (isOutputNode) {
+    function renderPropertiesContent(): React.ReactNode {
+      throw new Error('Function not implemented.');
+    }
+
     return (
       <Card className="w-full h-full bg-white border-0 flex flex-col overflow-hidden">
         <CardHeader className="bg-slate-50 py-4 border-b border-slate-100 flex-shrink-0">
           <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
             {getHeaderIcon()}
             Properties: {node.data.label}
-          </CardTitle>
-        </CardHeader>
-        
-        <div className="flex-1 overflow-hidden">
-          <ResizablePanelGroup direction={panelLayout} className="h-full">
-            {/* Main output panel */}
-            <ResizablePanel defaultSize={75} minSize={50}>
-              {renderOutputContent()}
-            </ResizablePanel>
-            
-            <ResizableHandle withHandle />
-            
-            {/* Metadata panel */}
-            <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-2 m-2">
-                  <TabsTrigger value="output" className="text-xs">Output</TabsTrigger>
-                  <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
-                </TabsList>
-                <TabsContent value="output" className="flex-1 mt-0">
-                  <div className="p-3 space-y-3">
-                    <h3 className="text-sm font-semibold text-slate-700">Output Details</h3>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Status:</span>
-                        <Badge variant={hasOutput ? "default" : "secondary"} className="text-xs">
-                          {hasOutput ? "Ready" : "Waiting"}
-                        </Badge>
-                      </div>
-                      {hasOutput && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Length:</span>
-                            <span className="text-slate-700">{node.data.output.length} chars</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Words:</span>
-                            <span className="text-slate-700">{node.data.output.split(' ').length}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Lines:</span>
-                            <span className="text-slate-700">{node.data.output.split('\n').length}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="info" className="flex-1 mt-0">
-                  {renderMetadata()}
-                </TabsContent>
-              </Tabs>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
-      </Card>
-    );
-  }
-
-  // For input nodes and others, use the standard layout
-  return (
-    <Card className="w-full h-full bg-white border-0">
-      <CardHeader className="bg-slate-50 py-4 border-b border-slate-100">
-        <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
-          {getHeaderIcon()}
-          Properties: {node.data.label}
           {node.data.isProcessing && (
             <RefreshCw className="h-3 w-3 animate-spin text-blue-500 ml-auto" />
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-6">
-        {isInputNode ? renderInputFields() : (
-          <div className="text-center py-8">
-            <p className="text-sm text-slate-500">No editable properties</p>
-          </div>
-        )}
-      </CardContent>
+      
+      <div className="flex-1 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <TabsList className="grid w-full grid-cols-2 m-2">
+            <TabsTrigger value="properties" className="text-xs">Properties</TabsTrigger>
+            <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="properties" className="flex-1 mt-0 overflow-auto">
+            <ScrollArea className="h-full">
+              {renderPropertiesContent()}
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="info" className="flex-1 mt-0">
+            {renderMetadata()}
+          </TabsContent>
+        </Tabs>
+      </div>
     </Card>
   );
 };
+}
 
 export default NodePropertiesAdvanced;

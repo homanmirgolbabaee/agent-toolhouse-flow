@@ -16,7 +16,8 @@ import {
   FileOutput,
   Sparkles,
   Palette,
-  ChevronDown
+  ChevronDown,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +81,7 @@ const DEFAULT_COLOR_PALETTE = [
   { name: 'Teal', color: '#14B8A6', light: '#CCFBF1' }
 ];
 
+// Updated NODE_TYPES with YAML Agent
 const NODE_TYPES: NodeType[] = [
   {
     type: 'toolhouseInput',
@@ -87,6 +89,13 @@ const NODE_TYPES: NodeType[] = [
     icon: <Bot className="h-5 w-5" />,
     color: 'indigo',
     description: 'AI-powered input node with Toolhouse'
+  },
+  {
+    type: 'yamlAgentNode',
+    label: 'YAML Agent',
+    icon: <FileText className="h-5 w-5" />,
+    color: 'emerald',
+    description: 'Deploy agents from YAML configuration'
   },
   {
     type: 'outputNode',
@@ -168,6 +177,13 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
           border: 'border-violet-200', 
           text: 'text-violet-700',
           hover: 'hover:bg-violet-100'
+        };
+      case 'emerald':
+        return { 
+          bg: 'bg-emerald-50', 
+          border: 'border-emerald-200', 
+          text: 'text-emerald-700',
+          hover: 'hover:bg-emerald-100'
         };
       default:
         return { 
@@ -518,7 +534,7 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
           </div>
           
           <p className="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-lg border border-slate-100">
-            💡 Drag components to the canvas to add them to your workflow
+            💡 Drag components to the canvas or upload YAML files to add them to your workflow
           </p>
         </div>
 
@@ -531,19 +547,19 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
           <ul className="text-xs text-indigo-700 space-y-2">
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span>Connect Input/Agent to Output nodes with edges</span>
+              <span>Connect AI Input, YAML Agents to Output nodes with edges</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span>Ctrl+Click to select multiple nodes</span>
+              <span>Upload YAML files to create pre-configured agent nodes</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span>Import YAML files to create agent workflows</span>
+              <span>Ctrl+Click to select multiple nodes for bundling</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span>Create bundles to organize workflows</span>
+              <span>Create bundles to organize and run workflows together</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
