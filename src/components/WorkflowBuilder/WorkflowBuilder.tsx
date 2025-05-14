@@ -272,11 +272,16 @@ const WorkflowBuilderInner: React.FC = () => {
   };
 
   // Handle YAML file upload
+    // Handle YAML file upload
   const handleYamlParsed = useCallback((parsedAgent: ParsedAgent) => {
     const { config, variables } = parsedAgent;
     
     // Create a new YAML agent node
     const position = { x: 200, y: 150 };
+    
+    // Generate bundle ID and select appropriate color
+    const bundleId = `bundle_${nextBundleId}`;
+    const bundleColor = BUNDLE_COLOR_PALETTE[(nextBundleId - 1) % BUNDLE_COLOR_PALETTE.length];
     
     const yamlAgentNode = {
       id: `yamlAgent_${Date.now()}`,
@@ -290,9 +295,14 @@ const WorkflowBuilderInner: React.FC = () => {
           variables: variables.reduce((acc, v) => ({ ...acc, [v.name]: v.value }), {}),
           model: 'gpt-4o-mini'
         },
-        bundleId: null,
+        bundleId,
         onDelete: handleNodeDelete
       },
+      style: {
+        backgroundColor: bundleColor.light,
+        border: `2px solid ${bundleColor.color}`,
+        transition: 'all 0.3s ease-in-out',
+      }
     };
 
     // Create an output node for the YAML agent
@@ -304,9 +314,14 @@ const WorkflowBuilderInner: React.FC = () => {
         label: 'Output',
         type: 'outputNode',
         config: {},
-        bundleId: null,
+        bundleId,
         onDelete: handleNodeDelete
       },
+      style: {
+        backgroundColor: bundleColor.light,
+        border: `2px solid ${bundleColor.color}`,
+        transition: 'all 0.3s ease-in-out',
+      }
     };
 
     // Create an edge connecting them
@@ -323,16 +338,28 @@ const WorkflowBuilderInner: React.FC = () => {
       }
     };
 
+    // Create the bundle automatically
+    const newBundle: Bundle = {
+      id: bundleId,
+      name: `${config.title} Bundle`,
+      nodeIds: [yamlAgentNode.id, outputNode.id],
+      color: bundleColor.color,
+      isRunning: false
+    };
+
+    // Update state
     setNodes((nds) => [...nds, yamlAgentNode, outputNode]);
     setEdges((eds) => [...eds, edge]);
+    setBundles(prev => [...prev, newBundle]);
+    setNextBundleId(prev => prev + 1);
     setIsYamlDialogOpen(false);
 
-    addLog(`✅ YAML agent "${config.title}" loaded successfully`);
+    addLog(`✅ YAML agent "${config.title}" loaded successfully with auto-bundle`);
     uiToast({
-      title: "YAML Agent Loaded",
-      description: `Agent "${config.title}" has been added to the workflow`,
+      title: "YAML Agent & Bundle Created",
+      description: `Agent "${config.title}" has been added with an automatic bundle`,
     });
-  }, [setNodes, setEdges, handleNodeDelete, addLog, uiToast]);
+  }, [setNodes, setEdges, handleNodeDelete, addLog, uiToast, nextBundleId, setBundles, setNextBundleId]);
 
   const handleYamlError = useCallback((error: string) => {
     addLog(`❌ YAML upload error: ${error}`);

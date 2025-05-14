@@ -119,8 +119,10 @@ const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateN
 
   const isInputNode = node.data.type === 'toolhouseInput';
   const isOutputNode = node.data.type === 'outputNode';
+  const isYamlAgentNode = node.data.type === 'yamlAgentNode';
   const hasOutput = node.data.output && !node.data.isProcessing;
 
+  // Render input node properties
   const renderInputFields = () => (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -158,6 +160,70 @@ const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateN
           OpenAI model used for processing
         </p>
       </div>
+    </div>
+  );
+
+  // Render YAML agent node properties
+  const renderYamlAgentFields = () => (
+    <div className="space-y-6">
+      {node.data.config?.agentConfig ? (
+        <>
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-slate-700">Agent Configuration</Label>
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="font-medium text-slate-500">Title:</span>
+                  <p className="text-slate-700 mt-1">{node.data.config.agentConfig.title}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">ID:</span>
+                  <p className="text-slate-700 mt-1 font-mono">{node.data.config.agentConfig.id}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">Bundle:</span>
+                  <p className="text-slate-700 mt-1">{node.data.config.agentConfig.bundle || 'default'}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">Public:</span>
+                  <p className="text-slate-700 mt-1">{node.data.config.agentConfig.public ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-slate-700">Prompt</Label>
+            <div className="bg-white p-3 rounded border text-sm text-slate-700 max-h-32 overflow-y-auto">
+              {node.data.config.agentConfig.prompt}
+            </div>
+          </div>
+
+          {Object.keys(node.data.config.variables || {}).length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-slate-700">Variables</Label>
+              <div className="space-y-2">
+                {Object.entries(node.data.config.variables).map(([key, value]) => (
+                  <div key={key} className="flex items-center gap-3 p-3 bg-slate-50 rounded border">
+                    <span className="text-sm font-medium text-slate-600 min-w-0 flex-1">{key}:</span>
+                    <span className="text-sm text-slate-700 flex-2">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-orange-500" />
+            <div>
+              <p className="text-sm font-semibold text-orange-700">No YAML Configuration</p>
+              <p className="text-xs text-orange-600">Upload a YAML file to configure this agent</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -364,21 +430,67 @@ const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateN
   const getHeaderIcon = () => {
     if (isInputNode) return <Sparkles className="h-4 w-4 text-blue-500" />;
     if (isOutputNode) return <Code className="h-4 w-4 text-purple-500" />;
+    if (isYamlAgentNode) return <FileText className="h-4 w-4 text-emerald-500" />;
     return <Settings className="h-4 w-4 text-slate-500" />;
   };
 
-  // For output nodes, use a specialized layout
-  if (isOutputNode) {
-    function renderPropertiesContent(): React.ReactNode {
-      throw new Error('Function not implemented.');
+  // Main render logic for different node types
+  const renderPropertiesContent = () => {
+    if (isInputNode) {
+      return renderInputFields();
+    } else if (isYamlAgentNode) {
+      return renderYamlAgentFields();
+    } else {
+      // For other node types, show basic info
+      return (
+        <div className="p-4 text-center">
+          <p className="text-sm text-slate-500">No configurable properties for this node type</p>
+        </div>
+      );
     }
+  };
 
+  // Special layout for output nodes
+  if (isOutputNode) {
     return (
       <Card className="w-full h-full bg-white border-0 flex flex-col overflow-hidden">
         <CardHeader className="bg-slate-50 py-4 border-b border-slate-100 flex-shrink-0">
           <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
             {getHeaderIcon()}
             Properties: {node.data.label}
+            {node.data.isProcessing && (
+              <RefreshCw className="h-3 w-3 animate-spin text-blue-500 ml-auto" />
+            )}
+          </CardTitle>
+        </CardHeader>
+        
+        <div className="flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 m-2">
+              <TabsTrigger value="output" className="text-xs">Output</TabsTrigger>
+              <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="output" className="flex-1 mt-0 overflow-hidden">
+              {renderOutputContent()}
+            </TabsContent>
+            
+            <TabsContent value="info" className="flex-1 mt-0">
+              {renderMetadata()}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </Card>
+    );
+  }
+
+  // Standard layout for input and other nodes
+  return (
+    <Card className="w-full h-full bg-white border-0 flex flex-col overflow-hidden">
+      <CardHeader className="bg-slate-50 py-4 border-b border-slate-100 flex-shrink-0">
+        <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
+          {getHeaderIcon()}
+          Properties: {node.data.label}
           {node.data.isProcessing && (
             <RefreshCw className="h-3 w-3 animate-spin text-blue-500 ml-auto" />
           )}
@@ -406,6 +518,5 @@ const NodePropertiesAdvanced: React.FC<NodePropertiesProps> = ({ node, onUpdateN
     </Card>
   );
 };
-}
 
-export default NodePropertiesAdvanced;
+export default NodePropertiesAdvanced;  
