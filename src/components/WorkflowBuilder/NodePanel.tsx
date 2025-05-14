@@ -62,9 +62,23 @@ interface BundlesPanelProps {
   isSelectionMode: boolean;
   onToggleSelectionMode: () => void;
   onClearSelection: () => void;
-  colorPalette: { name: string; color: string; light: string }[];
-  onChangeBundleColor: (bundleId: string, newColor: { name: string; color: string; light: string }) => void;
+  colorPalette?: { name: string; color: string; light: string }[];
+  onChangeBundleColor?: (bundleId: string, newColor: { name: string; color: string; light: string }) => void;
 }
+
+// Default color palette if none provided
+const DEFAULT_COLOR_PALETTE = [
+  { name: 'Blue', color: '#3B82F6', light: '#DBEAFE' },
+  { name: 'Purple', color: '#8B5CF6', light: '#EDE9FE' },
+  { name: 'Green', color: '#10B981', light: '#D1FAE5' },
+  { name: 'Red', color: '#EF4444', light: '#FEE2E2' },
+  { name: 'Orange', color: '#F59E0B', light: '#FEF3C7' },
+  { name: 'Pink', color: '#EC4899', light: '#FCE7F3' },
+  { name: 'Indigo', color: '#6366F1', light: '#E0E7FF' },
+  { name: 'Yellow', color: '#EAB308', light: '#FEF9C3' },
+  { name: 'Cyan', color: '#06B6D4', light: '#CFFAFE' },
+  { name: 'Teal', color: '#14B8A6', light: '#CCFBF1' }
+];
 
 const NODE_TYPES: NodeType[] = [
   {
@@ -94,7 +108,7 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
   isSelectionMode,
   onToggleSelectionMode,
   onClearSelection,
-  colorPalette,
+  colorPalette = DEFAULT_COLOR_PALETTE,
   onChangeBundleColor
 }) => {
   const [editingBundleId, setEditingBundleId] = useState<string | null>(null);
@@ -371,30 +385,42 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
                     
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-medium text-slate-500">Color:</span>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="flex items-center gap-2 hover:bg-slate-50 rounded-lg p-1 transition-colors">
-                            <div
-                              className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
-                              style={{ backgroundColor: bundle.color }}
+                      {onChangeBundleColor ? (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center gap-2 hover:bg-slate-50 rounded-lg p-1 transition-colors">
+                              <div
+                                className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                                style={{ backgroundColor: bundle.color }}
+                              />
+                              <span className="text-xs text-slate-600 font-medium">
+                                {bundleColor.name}
+                              </span>
+                              <Palette className="h-3 w-3 text-slate-400" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-0" side="top">
+                            <div className="p-3 border-b border-slate-100">
+                              <h4 className="text-sm font-semibold text-slate-900">Change Bundle Color</h4>
+                              <p className="text-xs text-slate-500 mt-1">Select a new color for this bundle</p>
+                            </div>
+                            <ColorPalette 
+                              onColorSelect={(color) => onChangeBundleColor(bundle.id, color)}
+                              currentColor={bundle.color}
                             />
-                            <span className="text-xs text-slate-600 font-medium">
-                              {bundleColor.name}
-                            </span>
-                            <Palette className="h-3 w-3 text-slate-400" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-0" side="top">
-                          <div className="p-3 border-b border-slate-100">
-                            <h4 className="text-sm font-semibold text-slate-900">Change Bundle Color</h4>
-                            <p className="text-xs text-slate-500 mt-1">Select a new color for this bundle</p>
-                          </div>
-                          <ColorPalette 
-                            onColorSelect={(color) => onChangeBundleColor(bundle.id, color)}
-                            currentColor={bundle.color}
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                            style={{ backgroundColor: bundle.color }}
                           />
-                        </PopoverContent>
-                      </Popover>
+                          <span className="text-xs text-slate-600 font-medium">
+                            {bundleColor.name}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex gap-2">

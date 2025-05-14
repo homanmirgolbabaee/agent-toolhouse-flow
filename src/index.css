@@ -325,31 +325,36 @@ html, body, #root {
 }
 
 /* Bundle creation feedback */
+/* Bundle creation feedback with enhanced animation */
 .bundle-creation-feedback {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   background: white;
-  padding: 1rem;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  animation: bundleCreated 0.5s ease-out;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  animation: bundleCreated 0.6s ease-out;
   z-index: 1000;
+  border: 2px solid rgba(79, 70, 229, 0.2);
 }
 
 @keyframes bundleCreated {
   0% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.8);
+    filter: blur(4px);
   }
   50% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1.05);
+    filter: blur(0px);
   }
   100% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+    filter: blur(0px);
   }
 }
 
@@ -358,40 +363,42 @@ html, body, #root {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar with enhanced styling */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
+  background: #f8fafc;
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
+  border-radius: 4px;
   transition: background 0.2s ease-in-out;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: linear-gradient(to bottom, #94a3b8, #64748b);
 }
 
-/* Minimap and controls styling */
+/* Minimap and controls with enhanced styling */
 .react-flow__minimap {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   background: white;
+  border: 2px solid rgba(0, 0, 0, 0.05);
 }
 
 .react-flow__controls {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   background: white;
+  border: 2px solid rgba(0, 0, 0, 0.05);
 }
 
 .react-flow__controls-button {
@@ -399,28 +406,37 @@ html, body, #root {
   background: white;
   border: none;
   color: #64748b;
+  width: 40px;
+  height: 40px;
 }
 
 .react-flow__controls-button:hover {
   background-color: #f1f5f9;
-  transform: scale(1.05);
+  transform: scale(1.1);
   color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.react-flow__controls-button:active {
+  transform: scale(0.95);
 }
 
 /* Drag and drop visual feedback */
 .react-flow__node.dragging {
   opacity: 0.8;
   transform: scale(1.05);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.2));
+  z-index: 1000;
 }
 
 /* Enhanced node focus states */
 .react-flow__node:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+  outline: 3px solid #6366f1;
+  outline-offset: 3px;
+  border-radius: 20px;
 }
 
-/* Bundle indicator improved styling */
+/* Bundle indicator with pulsing animation */
 .bundle-indicator {
   position: absolute;
   top: -8px;
@@ -429,19 +445,166 @@ html, body, #root {
   height: 16px;
   border-radius: 50%;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  border: 2px solid white;
+  border: 3px solid white;
   z-index: 10;
-  animation: bundle-pulse 2s infinite;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  animation: bundle-pulse 3s infinite;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
 }
 
 @keyframes bundle-pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
   }
   50% {
-    transform: scale(1.1);
-    box-shadow: 0 2px 12px rgba(79, 70, 229, 0.5);
+    transform: scale(1.15);
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.6);
+  }
+}
+
+/* Enhanced background patterns */
+.react-flow__background {
+  background-color: #f8fafc;
+}
+
+/* Node processing shimmer effect */
+@keyframes processing-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.processing-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.processing-node::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: processing-shimmer 2s ease-in-out infinite;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Enhanced edge hover effects */
+.react-flow__edge:hover .react-flow__edge-text {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Improved panel shadows and transitions */
+.react-flow__panel {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+/* Loading states for nodes */
+.node-loading {
+  animation: node-loading-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes node-loading-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Success states for nodes */
+.node-success {
+  animation: node-success-flash 0.6s ease-out;
+}
+
+@keyframes node-success-flash {
+  0% {
+    filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.6));
+  }
+  100% {
+    filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+  }
+}
+
+/* Error states for nodes */
+.node-error {
+  animation: node-error-shake 0.6s ease-out;
+}
+
+@keyframes node-error-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .react-flow__node {
+    min-width: 280px;
+    max-width: 320px;
+  }
+  
+  .react-flow__controls-button {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .react-flow__handle {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .react-flow__background {
+    background-color: #0f172a;
+  }
+  
+  .react-flow__node {
+    color: #e2e8f0;
+  }
+  
+  .react-flow__controls,
+  .react-flow__minimap {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .react-flow__controls-button {
+    background: #1e293b;
+    color: #94a3b8;
+  }
+  
+  .react-flow__controls-button:hover {
+    background: #334155;
+    color: #60a5fa;
   }
 }

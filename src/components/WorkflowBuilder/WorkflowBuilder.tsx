@@ -24,7 +24,7 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Sparkles, RefreshCw, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, PanelRightOpen, PanelRightClose, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { useToast } from '@/hooks/use-toast';
@@ -42,12 +42,12 @@ const nodeTypes = {
   customNode: CustomNode,
 };
 
-const BUNDLE_COLORS = [
-  '#e3f2fd',
-  '#f3e5f5',
-  '#e8f5e9',
-  '#fff3e0',
-  '#fce4ec',
+const BUNDLE_COLOR_PALETTE = [
+  { name: 'Blue', color: '#2196f3', light: '#e3f2fd' },
+  { name: 'Purple', color: '#9c27b0', light: '#f3e5f5' },
+  { name: 'Green', color: '#4caf50', light: '#e8f5e9' },
+  { name: 'Orange', color: '#ff9800', light: '#fff3e0' },
+  { name: 'Pink', color: '#e91e63', light: '#fce4ec' },
 ];
 
 const WorkflowBuilderInner: React.FC = () => {
@@ -259,7 +259,7 @@ const WorkflowBuilderInner: React.FC = () => {
     setLogs((prevLogs) => [`[${timestamp}] ${message}`, ...prevLogs]);
   };
 
-  const createBundle = () => {
+  const createBundle = (selectedColor?: { name: string; color: string; light: string }) => {
     if (selectedNodes.length === 0) {
       uiToast({
         title: "No Nodes Selected",
@@ -290,11 +290,13 @@ const WorkflowBuilderInner: React.FC = () => {
     }
 
     const bundleId = `bundle_${nextBundleId}`;
+    const color = selectedColor || BUNDLE_COLOR_PALETTE[(nextBundleId - 1) % BUNDLE_COLOR_PALETTE.length];
+    
     const newBundle: Bundle = {
       id: bundleId,
       name: `Bundle ${nextBundleId}`,
       nodeIds: [...selectedNodes],
-      color: BUNDLE_COLORS[(nextBundleId - 1) % BUNDLE_COLORS.length],
+      color: color.color,
       isRunning: false
     };
 
@@ -306,8 +308,8 @@ const WorkflowBuilderInner: React.FC = () => {
           data: { ...node.data, bundleId },
           style: { 
             ...node.style, 
-            backgroundColor: newBundle.color,
-            border: `2px solid ${newBundle.color.replace('f', 'c')}`,
+            backgroundColor: color.light,
+            border: `2px solid ${color.color}`,
             transition: 'all 0.3s ease-in-out',
           }
         };
@@ -372,6 +374,28 @@ const WorkflowBuilderInner: React.FC = () => {
     ));
   };
 
+  const changeBundleColor = (bundleId: string, newColor: { name: string; color: string; light: string }) => {
+    setBundles(prev => prev.map(bundle => 
+      bundle.id === bundleId ? { ...bundle, color: newColor.color } : bundle
+    ));
+
+    // Update node styles
+    setNodes(nds => nds.map(node => {
+      if (node.data.bundleId === bundleId) {
+        return {
+          ...node,
+          style: { 
+            ...node.style, 
+            backgroundColor: newColor.light,
+            border: `2px solid ${newColor.color}`,
+            transition: 'all 0.3s ease-in-out',
+          }
+        };
+      }
+      return node;
+    }));
+  };
+
   const findNodesByType = (nodeIds: string[], type: string) => {
     return nodes.filter(node => nodeIds.includes(node.id) && node.data.type === type);
   };
@@ -425,7 +449,7 @@ const WorkflowBuilderInner: React.FC = () => {
     }
   };
 
-  // Update bundle running state and apply glow effect to edges only
+  // Update bundle running state
   const updateBundleRunningState = useCallback((bundleId: string, isRunning: boolean) => {
     setBundles(prev => prev.map(b => 
       b.id === bundleId ? { ...b, isRunning } : b
@@ -535,7 +559,7 @@ const WorkflowBuilderInner: React.FC = () => {
           
           addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
           
-          // Set processing state for output node (no glow effect on node)
+          // Set processing state for output node
           setNodes((nds) =>
             nds.map((node) => {
               if (node.id === outputNode.id) {
@@ -672,8 +696,8 @@ const WorkflowBuilderInner: React.FC = () => {
         type: 'smoothstep',
         animated: true,
         style: { 
-          stroke: '#3b82f6', 
-          strokeWidth: 2,
+          stroke: 'url(#edgeGradient)', 
+          strokeWidth: 3,
           transition: 'all 0.3s ease-in-out'
         }
       };
@@ -717,17 +741,17 @@ const WorkflowBuilderInner: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
-      {/* Header */}
+      {/* Enhanced Header */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+                <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Toolhouse Workflow Builder</h1>
-                <p className="text-sm text-slate-600">Visual AI workflow editor</p>
+                <h1 className="text-xl font-bold text-slate-900">Workflow Studio</h1>
+                <p className="text-sm text-slate-600">Build intelligent AI workflows</p>
               </div>
             </div>
           </div>
@@ -805,6 +829,8 @@ const WorkflowBuilderInner: React.FC = () => {
               isSelectionMode={isSelectionMode}
               onToggleSelectionMode={toggleSelectionMode}
               onClearSelection={clearSelection}
+              colorPalette={BUNDLE_COLOR_PALETTE}
+              onChangeBundleColor={changeBundleColor}
             />
           </ResizablePanel>
 
@@ -841,7 +867,7 @@ const WorkflowBuilderInner: React.FC = () => {
                   selectionOnDrag={false}
                   selectNodesOnDrag={false}
                   connectionLineStyle={{
-                    stroke: '#3b82f6',
+                    stroke: '#6366f1',
                     strokeWidth: 3,
                     strokeDasharray: 'none',
                     strokeLinecap: 'round',
@@ -851,7 +877,7 @@ const WorkflowBuilderInner: React.FC = () => {
                     type: 'smoothstep',
                     animated: false,
                     style: { 
-                      stroke: '#6366f1', 
+                      stroke: 'url(#edgeGradient)', 
                       strokeWidth: 3,
                       strokeLinecap: 'round',
                       strokeLinejoin: 'round',
@@ -860,7 +886,7 @@ const WorkflowBuilderInner: React.FC = () => {
                   }}
                 >
                   <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
-                  <Background color="#e2e8f0" gap={16} size={1} />
+                  <Background color="#e2e8f0" gap={20} size={1} variant="dots" />
                   <MiniMap 
                     className="bg-white border border-slate-200 rounded-lg shadow-sm" 
                     nodeColor={(node) => {
@@ -868,6 +894,7 @@ const WorkflowBuilderInner: React.FC = () => {
                       if (node.data.type === 'outputNode') return '#8b5cf6';
                       return '#64748b';
                     }}
+                    maskColor="rgba(0, 0, 0, 0.1)"
                   />
                   
                   {/* SVG Definitions for Gradients */}
