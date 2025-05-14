@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Code, Play, Plus, Group, Trash2, RefreshCw, Layers } from 'lucide-react';
+import { MessageSquare, Code, Play, Plus, Group, Trash2, RefreshCw, Layers, Edit2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface NodeType {
   type: string;
@@ -25,6 +37,7 @@ interface BundlesPanelProps {
   bundles: Bundle[];
   onRunBundle: (bundleId: string) => void;
   onDeleteBundle: (bundleId: string) => void;
+  onRenameBundle: (bundleId: string, newName: string) => void;
   selectedNodes: string[];
   onCreateBundle: () => void;
   isSelectionMode: boolean;
@@ -52,12 +65,34 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
   bundles,
   onRunBundle,
   onDeleteBundle,
+  onRenameBundle,
   selectedNodes,
   onCreateBundle,
   isSelectionMode,
   onToggleSelectionMode,
   onClearSelection
 }) => {
+  const [editingBundleId, setEditingBundleId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const startEditing = (bundle: Bundle) => {
+    setEditingBundleId(bundle.id);
+    setEditingName(bundle.name);
+  };
+
+  const saveEdit = () => {
+    if (editingBundleId && editingName.trim()) {
+      onRenameBundle(editingBundleId, editingName.trim());
+    }
+    setEditingBundleId(null);
+    setEditingName('');
+  };
+
+  const cancelEdit = () => {
+    setEditingBundleId(null);
+    setEditingName('');
+  };
+
   const getColorClasses = (color: string) => {
     switch (color) {
       case 'blue':
@@ -71,11 +106,11 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
 
   const getBundleColorFromString = (colorString: string) => {
     const colorMap: {[key: string]: string} = {
-      '#e3f2fd': 'Light Blue',
-      '#f3e5f5': 'Light Purple', 
-      '#e8f5e9': 'Light Green',
-      '#fff3e0': 'Light Orange',
-      '#fce4ec': 'Light Pink'
+      '#e3f2fd': 'Blue',
+      '#f3e5f5': 'Purple', 
+      '#e8f5e9': 'Green',
+      '#fff3e0': 'Orange',
+      '#fce4ec': 'Pink'
     };
     return colorMap[colorString] || 'Custom';
   };
@@ -93,6 +128,9 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
             {bundles.length} bundles
           </Badge>
         </div>
+        <p className="text-xs text-slate-500 mt-1">
+          Create bundles to organize and run your workflow components
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -182,10 +220,51 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
                   style={{ borderLeftColor: bundle.color, borderLeftWidth: '4px' }}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-slate-900">{bundle.name}</h4>
+                    <div className="flex items-center gap-2 flex-1">
+                      {editingBundleId === bundle.id ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            className="h-8 text-sm"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEdit();
+                              if (e.key === 'Escape') cancelEdit();
+                            }}
+                          />
+                          <Button
+                            onClick={saveEdit}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-green-600"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            onClick={cancelEdit}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <h4 className="font-medium text-slate-900">{bundle.name}</h4>
+                          <Button
+                            onClick={() => startEditing(bundle)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-600"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
                       {bundle.isRunning && (
-                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 ml-2">
                           <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                           Running
                         </Badge>
@@ -227,14 +306,32 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
                         </>
                       )}
                     </Button>
-                    <Button
-                      onClick={() => onDeleteBundle(bundle.id)}
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Bundle</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{bundle.name}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onDeleteBundle(bundle.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}
@@ -279,6 +376,17 @@ const BundlesPanel: React.FC<BundlesPanelProps> = ({
           <p className="text-xs text-slate-500 italic">
             Drag components to the canvas to add them
           </p>
+        </div>
+
+        {/* Help Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <h4 className="text-sm font-semibold text-blue-800 mb-2">Quick Tips</h4>
+          <ul className="text-xs text-blue-700 space-y-1">
+            <li>• Connect Input to Output nodes</li>
+            <li>• Select multiple nodes and create bundles</li>
+            <li>• Click bundle name to rename</li>
+            <li>• Use DEL key to delete selected nodes</li>
+          </ul>
         </div>
       </div>
     </div>

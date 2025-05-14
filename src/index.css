@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -55,27 +54,360 @@ html, body, #root {
   margin: 0;
 }
 
+/* Custom ReactFlow node styles with animations */
 .react-flow__node {
   padding: 0;
-  border-radius: 3px;
+  border-radius: 12px;
   width: auto;
   font-size: 12px;
   color: #222;
   text-align: center;
   border-width: 1px;
   overflow: visible;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.react-flow__node.selected {
+  transform: scale(1.02);
+}
+
+.react-flow__node:hover {
+  transform: scale(1.01);
+}
+
+/* Enhanced handle styles with hover effects */
 .react-flow__handle {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.react-flow__handle::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease-in-out;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.2);
+}
+
+.react-flow__handle:hover::before {
+  opacity: 0.2;
+  transform: scale(1.5);
 }
 
 .react-flow__handle-bottom {
-  bottom: -4px;
+  bottom: -6px;
 }
 
 .react-flow__handle-top {
-  top: -4px;
+  top: -6px;
+}
+
+/* Smooth edge animations */
+.react-flow__edge-path {
+  transition: stroke-width 0.2s ease-in-out;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3px;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 1s linear infinite;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 3px;
+  stroke: #3b82f6;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Custom animation keyframes */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-blue {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+}
+
+/* Apply animations to components */
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-slide-out {
+  animation: slideOut 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-scale-out {
+  animation: scaleOut 0.2s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.animate-pulse-blue {
+  animation: pulse-blue 2s infinite;
+}
+
+.animate-pulse-green {
+  animation: pulse-green 2s infinite;
+}
+
+/* Improved bundle node styling */
+.bundle-node {
+  position: relative;
+  overflow: visible;
+}
+
+.bundle-node::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: linear-gradient(45deg, currentColor, transparent);
+  opacity: 0.1;
+  z-index: -1;
+  transition: all 0.3s ease-in-out;
+}
+
+.bundle-node:hover::before {
+  opacity: 0.2;
+  inset: -6px;
+}
+
+/* Enhanced loading states */
+.processing-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.processing-node::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Smooth transitions for panels */
+.panel-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+  transition: background 0.2s ease-in-out;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Node deletion animation */
+.node-delete-exit {
+  animation: nodeDeleteExit 0.3s ease-in-out forwards;
+}
+
+@keyframes nodeDeleteExit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Edge creation animation */
+.react-flow__connection-line {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 5;
+  animation: dashdraw 1s linear infinite;
+}
+
+/* Bundle creation feedback */
+.bundle-creation-feedback {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  animation: bundleCreated 0.5s ease-out;
+}
+
+@keyframes bundleCreated {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Success and error states */
+.success-state {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.error-state {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.processing-state {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Minimap custom styles */
+.react-flow__minimap {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Controls custom styles */
+.react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__controls-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.react-flow__controls-button:hover {
+  background-color: #f1f5f9;
+  transform: scale(1.05);
 }

@@ -22,14 +22,11 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Sparkles, RefreshCw, Group, Square, CheckSquare, Link, Zap, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
-import { toast } from 'sonner';
 import { useToast } from '@/hooks/use-toast';
-import BundlesPanel from './NodePanel';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
-import NodePropertiesAdvanced from './NodeProperties';
 
 interface Bundle {
   id: string;
@@ -69,8 +66,6 @@ const WorkflowBuilderInner: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [nextBundleId, setNextBundleId] = useState(1);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-
-  const { getNodes } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({
@@ -130,7 +125,8 @@ const WorkflowBuilderInner: React.FC = () => {
             label: getNodeLabel(type),
             type: type,
             config: getDefaultConfig(type),
-            bundleId: null
+            bundleId: null,
+            onDelete: handleNodeDelete
           },
         };
 
@@ -167,6 +163,27 @@ const WorkflowBuilderInner: React.FC = () => {
         return 'Node';
     }
   };
+
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    
+    // Update bundles to remove deleted node
+    setBundles(prev => prev.map(bundle => ({
+      ...bundle,
+      nodeIds: bundle.nodeIds.filter(id => id !== nodeId)
+    })).filter(bundle => bundle.nodeIds.length > 0));
+
+    // Clear selection if deleted node was selected
+    if (selectedNode?.id === nodeId) {
+      setSelectedNode(null);
+    }
+
+    uiToast({
+      title: "Node Deleted",
+      description: "Node and its connections have been removed.",
+    });
+  }, [setNodes, setEdges, setBundles, selectedNode, uiToast]);
 
   const updateNode = useCallback(
     (nodeId: string, data: any) => {
@@ -264,6 +281,12 @@ const WorkflowBuilderInner: React.FC = () => {
       title: "Bundle Deleted",
       description: `Deleted ${bundle.name}`,
     });
+  };
+
+  const renameBundle = (bundleId: string, newName: string) => {
+    setBundles(prev => prev.map(bundle => 
+      bundle.id === bundleId ? { ...bundle, name: newName } : bundle
+    ));
   };
 
   const findNodesByType = (nodeIds: string[], type: string) => {
@@ -479,6 +502,7 @@ const WorkflowBuilderInner: React.FC = () => {
     setIsProcessing(false);
   };
 
+  // Initialize with default nodes
   useEffect(() => {
     if (nodes.length === 0) {
       const inputNode = {
@@ -492,7 +516,8 @@ const WorkflowBuilderInner: React.FC = () => {
             prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.",
             model: "gpt-4o-mini"
           },
-          bundleId: null
+          bundleId: null,
+          onDelete: handleNodeDelete
         },
       };
       
@@ -504,7 +529,8 @@ const WorkflowBuilderInner: React.FC = () => {
           label: 'Output',
           type: 'outputNode',
           config: {},
-          bundleId: null
+          bundleId: null,
+          onDelete: handleNodeDelete
         },
       };
       
@@ -521,7 +547,7 @@ const WorkflowBuilderInner: React.FC = () => {
       
       setEdges([newEdge]);
     }
-  }, []);
+  }, [nodes.length, handleNodeDelete, setNodes, setEdges]);
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
@@ -602,11 +628,12 @@ const WorkflowBuilderInner: React.FC = () => {
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Sidebar - Bundle Management */}
           <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
-            <BundlesPanel 
+            <NodePanel 
               onDragStart={onDragStart}
               bundles={bundles}
               onRunBundle={runBundle}
               onDeleteBundle={deleteBundle}
+              onRenameBundle={renameBundle}
               selectedNodes={selectedNodes}
               onCreateBundle={createBundle}
               isSelectionMode={isSelectionMode}
@@ -654,13 +681,8 @@ const WorkflowBuilderInner: React.FC = () => {
                     }}
                   />
                   <Panel position="bottom-center" className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-                    <div className="text-xs flex items-center gap-3 text-slate-600">
-                      <Link className="w-4 h-4" /> 
-                      <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}</span>
-                      <span className="inline-flex items-center gap-1 text-blue-600">
-                        <Zap className="w-3 h-3" />
-                        Powered by Toolhouse
-                      </span>
+                    <div className="text-xs text-slate-600">
+                      {isSelectionMode ? 'Click nodes to select, then create bundles' : 'Drag components from sidebar to create workflows'}
                     </div>
                   </Panel>
                 </ReactFlow>
@@ -680,7 +702,7 @@ const WorkflowBuilderInner: React.FC = () => {
             <>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-                <NodePropertiesAdvanced node={selectedNode} onUpdateNode={updateNode} />
+                <NodeProperties node={selectedNode} onUpdateNode={updateNode} />
               </ResizablePanel>
             </>
           )}
