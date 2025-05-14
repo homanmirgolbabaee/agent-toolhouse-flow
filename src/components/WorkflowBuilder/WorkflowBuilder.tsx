@@ -10,7 +10,10 @@ import ReactFlow, {
   Node,
   useNodesState,
   useEdgesState,
-  Panel
+  Panel,
+  useReactFlow,
+  ReactFlowInstance,
+  ReactFlowProvider
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -19,28 +22,52 @@ import NodePanel from './NodePanel';
 import NodeProperties from './NodeProperties';
 import DebugPanel from './DebugPanel';
 import { Button } from '@/components/ui/button';
-import { Play, Link, Zap, Sparkles, RefreshCw } from 'lucide-react';
+import { Play, Link, Zap, Sparkles, RefreshCw, Group, Square, CheckSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import toolhouseService from '../../services/ToolhouseService';
 import { toast } from 'sonner';
 import { useToast } from '@/hooks/use-toast';
 
+interface Bundle {
+  id: string;
+  name: string;
+  nodeIds: string[];
+  color: string;
+  isRunning: boolean;
+}
+
 const nodeTypes = {
   customNode: CustomNode,
 };
 
-const WorkflowBuilder: React.FC = () => {
+const BUNDLE_COLORS = [
+  '#e3f2fd', // light blue
+  '#f3e5f5', // light purple
+  '#e8f5e9', // light green
+  '#fff3e0', // light orange
+  '#fce4ec', // light pink
+];
+
+const WorkflowBuilderInner: React.FC = () => {
   const { toast: uiToast } = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [toolhouseApiKey, setToolhouseApiKey] = useState<string>('');
   const [openaiApiKey, setOpenaiApiKey] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [debugExpanded, setDebugExpanded] = useState(false);
+  
+  // Bundle-related state
+  const [bundles, setBundles] = useState<Bundle[]>([]);
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [nextBundleId, setNextBundleId] = useState(1);
+
+  const { getNodes } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({
@@ -52,9 +79,24 @@ const WorkflowBuilder: React.FC = () => {
     [setEdges]
   );
 
-  const onNodeClick = useCallback((_: any, node: Node) => {
-    setSelectedNode(node);
-  }, []);
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    if (isSelectionMode) {
+      // Toggle node selection
+      setSelectedNodes(prev => 
+        prev.includes(node.id) 
+          ? prev.filter(id => id !== node.id)
+          : [...prev, node.id]
+      );
+    } else {
+      setSelectedNode(node);
+    }
+  }, [isSelectionMode]);
+
+  const onPaneClick = useCallback(() => {
+    if (!isSelectionMode) {
+      setSelectedNode(null);
+    }
+  }, [isSelectionMode]);
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -85,7 +127,8 @@ const WorkflowBuilder: React.FC = () => {
           data: { 
             label: getNodeLabel(type),
             type: type,
-            config: getDefaultConfig(type)
+            config: getDefaultConfig(type),
+            bundleId: null
           },
         };
 
@@ -142,8 +185,90 @@ const WorkflowBuilder: React.FC = () => {
     setLogs((prevLogs) => [`[${timestamp}] ${message}`, ...prevLogs]);
   };
 
-  const findNodesByType = (type: string) => {
-    return nodes.filter(node => node.data.type === type);
+  // Bundle management functions
+  const createBundle = () => {
+    if (selectedNodes.length === 0) {
+      uiToast({
+        title: "No Nodes Selected",
+        description: "Please select nodes to create a bundle",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const bundleId = `bundle_${nextBundleId}`;
+    const newBundle: Bundle = {
+      id: bundleId,
+      name: `Bundle ${nextBundleId}`,
+      nodeIds: [...selectedNodes],
+      color: BUNDLE_COLORS[(nextBundleId - 1) % BUNDLE_COLORS.length],
+      isRunning: false
+    };
+
+    // Update nodes with bundle ID and style
+    setNodes(nds => nds.map(node => {
+      if (selectedNodes.includes(node.id)) {
+        return {
+          ...node,
+          data: { ...node.data, bundleId },
+          style: { 
+            ...node.style, 
+            backgroundColor: newBundle.color,
+            border: `2px solid ${newBundle.color.replace('f', 'c')}`,
+          }
+        };
+      }
+      return node;
+    }));
+
+    setBundles(prev => [...prev, newBundle]);
+    setNextBundleId(prev => prev + 1);
+    setSelectedNodes([]);
+    setIsSelectionMode(false);
+
+    uiToast({
+      title: "Bundle Created",
+      description: `Created ${newBundle.name} with ${selectedNodes.length} nodes`,
+    });
+  };
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedNodes([]);
+  };
+
+  const clearSelection = () => {
+    setSelectedNodes([]);
+    setIsSelectionMode(false);
+  };
+
+  const deleteBundle = (bundleId: string) => {
+    const bundle = bundles.find(b => b.id === bundleId);
+    if (!bundle) return;
+
+    // Remove bundle styling from nodes
+    setNodes(nds => nds.map(node => {
+      if (bundle.nodeIds.includes(node.id)) {
+        const { bundleId, ...data } = node.data;
+        return {
+          ...node,
+          data,
+          style: { ...node.style, backgroundColor: undefined, border: undefined }
+        };
+      }
+      return node;
+    }));
+
+    setBundles(prev => prev.filter(b => b.id !== bundleId));
+    
+    uiToast({
+      title: "Bundle Deleted",
+      description: `Deleted ${bundle.name}`,
+    });
+  };
+
+  const findNodesByType = (nodeIds: string[], type: string) => {
+    return nodes.filter(node => nodeIds.includes(node.id) && node.data.type === type);
   };
 
   const getConnectedNodes = (nodeId: string, direction: 'source' | 'target') => {
@@ -195,57 +320,66 @@ const WorkflowBuilder: React.FC = () => {
     }
   };
 
-  const runWorkflow = async () => {
+  const runBundle = async (bundleId: string) => {
+    const bundle = bundles.find(b => b.id === bundleId);
+    if (!bundle) return;
+
+    setBundles(prev => prev.map(b => 
+      b.id === bundleId ? { ...b, isRunning: true } : b
+    ));
+
     setDebugExpanded(true);
-    setIsProcessing(true);
-    
+
     try {
       if (!toolhouseService.isInitialized()) {
         const initialized = await initializeToolhouse();
         if (!initialized) {
-          setIsProcessing(false);
+          setBundles(prev => prev.map(b => 
+            b.id === bundleId ? { ...b, isRunning: false } : b
+          ));
           return;
         }
       }
       
-      addLog('🚀 Running workflow...');
+      addLog(`🚀 Running ${bundle.name}...`);
       
-      const inputNodes = findNodesByType('toolhouseInput');
-      const outputNodes = findNodesByType('outputNode');
+      const inputNodes = findNodesByType(bundle.nodeIds, 'toolhouseInput');
+      const outputNodes = findNodesByType(bundle.nodeIds, 'outputNode');
       
       if (inputNodes.length === 0) {
-        addLog('❌ Error: No input node found in the workflow');
+        addLog(`❌ Error: No input node found in ${bundle.name}`);
         uiToast({
           title: "Missing Input",
-          description: "No input node found in the workflow",
+          description: `No input node found in ${bundle.name}`,
           variant: "destructive"
         });
-        setIsProcessing(false);
+        setBundles(prev => prev.map(b => 
+          b.id === bundleId ? { ...b, isRunning: false } : b
+        ));
         return;
       }
       
       if (outputNodes.length === 0) {
-        addLog('❌ Error: No output node found in the workflow');
+        addLog(`❌ Error: No output node found in ${bundle.name}`);
         uiToast({
           title: "Missing Output",
-          description: "No output node found in the workflow",
+          description: `No output node found in ${bundle.name}`,
           variant: "destructive"
         });
-        setIsProcessing(false);
+        setBundles(prev => prev.map(b => 
+          b.id === bundleId ? { ...b, isRunning: false } : b
+        ));
         return;
       }
       
       for (const inputNode of inputNodes) {
         const connectedOutputs = getConnectedNodes(inputNode.id, 'source');
-        const outputNode = connectedOutputs.find(node => node.data.type === 'outputNode');
+        const outputNode = connectedOutputs.find(node => 
+          node.data.type === 'outputNode' && bundle.nodeIds.includes(node.id)
+        );
         
         if (!outputNode) {
-          addLog(`❌ Error: Input node "${inputNode.data.label}" is not connected to an output node`);
-          uiToast({
-            title: "Connection Error",
-            description: "Input node is not connected to an output node",
-            variant: "destructive"
-          });
+          addLog(`❌ Error: Input node in ${bundle.name} is not connected to an output node`);
           continue;
         }
         
@@ -253,7 +387,7 @@ const WorkflowBuilder: React.FC = () => {
           const prompt = inputNode.data.config.prompt;
           const model = inputNode.data.config.model || 'gpt-4o-mini';
           
-          addLog(`⚡ Processing input: "${prompt.substring(0, 50)}..."`);
+          addLog(`⚡ Processing input in ${bundle.name}: "${prompt.substring(0, 50)}..."`);
           
           // Update output node to show processing state
           setNodes((nds) =>
@@ -275,7 +409,7 @@ const WorkflowBuilder: React.FC = () => {
           // Get response from Toolhouse service
           const response = await toolhouseService.processToolhouseWorkflow(prompt, model);
           
-          addLog(`✅ Workflow execution completed successfully`);
+          addLog(`✅ ${bundle.name} execution completed successfully`);
           
           // Update the output node with the formatted response
           setNodes((nds) =>
@@ -295,13 +429,13 @@ const WorkflowBuilder: React.FC = () => {
           );
           
           uiToast({
-            title: "Workflow Complete",
-            description: "Successfully executed workflow with Toolhouse",
+            title: "Bundle Complete",
+            description: `Successfully executed ${bundle.name}`,
           });
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          addLog(`❌ Error running workflow: ${errorMessage}`);
+          addLog(`❌ Error running ${bundle.name}: ${errorMessage}`);
           
           // Update output node to show error
           setNodes((nds) =>
@@ -321,15 +455,28 @@ const WorkflowBuilder: React.FC = () => {
           );
           
           uiToast({
-            title: "Workflow Error",
+            title: "Bundle Error",
             description: errorMessage,
             variant: "destructive"
           });
         }
       }
     } finally {
-      setIsProcessing(false);
+      setBundles(prev => prev.map(b => 
+        b.id === bundleId ? { ...b, isRunning: false } : b
+      ));
     }
+  };
+
+  const runWorkflow = async () => {
+    setIsProcessing(true);
+    
+    // Run all bundles sequentially
+    for (const bundle of bundles) {
+      await runBundle(bundle.id);
+    }
+    
+    setIsProcessing(false);
   };
 
   // Add some initial nodes to help the user get started
@@ -345,7 +492,8 @@ const WorkflowBuilder: React.FC = () => {
           config: { 
             prompt: "Generate a Python FizzBuzz program and execute it to show results up to 15.",
             model: "gpt-4o-mini"
-          }
+          },
+          bundleId: null
         },
       };
       
@@ -356,7 +504,8 @@ const WorkflowBuilder: React.FC = () => {
         data: { 
           label: 'Output',
           type: 'outputNode',
-          config: {}
+          config: {},
+          bundleId: null
         },
       };
       
@@ -408,6 +557,42 @@ const WorkflowBuilder: React.FC = () => {
               onChange={(e) => setOpenaiApiKey(e.target.value)}
             />
           </div>
+          
+          {/* Bundle Controls */}
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={toggleSelectionMode}
+              size="sm" 
+              variant={isSelectionMode ? "default" : "outline"}
+              className="px-3 py-2"
+            >
+              {isSelectionMode ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
+              {isSelectionMode ? "Exit Select" : "Select Nodes"}
+            </Button>
+            
+            {selectedNodes.length > 0 && (
+              <>
+                <Button 
+                  onClick={createBundle}
+                  size="sm" 
+                  variant="outline"
+                  className="px-3 py-2"
+                >
+                  <Group className="h-4 w-4 mr-2" />
+                  Create Bundle ({selectedNodes.length})
+                </Button>
+                <Button 
+                  onClick={clearSelection}
+                  size="sm" 
+                  variant="ghost"
+                  className="px-3 py-2"
+                >
+                  Clear
+                </Button>
+              </>
+            )}
+          </div>
+          
           <Button 
             onClick={runWorkflow} 
             size="sm" 
@@ -422,12 +607,50 @@ const WorkflowBuilder: React.FC = () => {
             ) : (
               <>
                 <Play className="h-4 w-4 mr-2" />
-                Run Workflow
+                Run All Bundles
               </>
             )}
           </Button>
         </div>
       </div>
+
+      {/* Bundle Bar */}
+      {bundles.length > 0 && (
+        <div className="border-b bg-white/50 backdrop-blur-sm p-2 flex gap-2 overflow-x-auto">
+          {bundles.map((bundle) => (
+            <div 
+              key={bundle.id}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+              style={{ backgroundColor: bundle.color, borderColor: bundle.color.replace('f', 'c') }}
+            >
+              <Group className="h-4 w-4" />
+              <span className="text-sm font-medium">{bundle.name}</span>
+              <span className="text-xs text-gray-600">({bundle.nodeIds.length} nodes)</span>
+              <Button
+                onClick={() => runBundle(bundle.id)}
+                disabled={bundle.isRunning}
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+              >
+                {bundle.isRunning ? (
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Play className="h-3 w-3" />
+                )}
+              </Button>
+              <Button
+                onClick={() => deleteBundle(bundle.id)}
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 flex">
         {/* Left Sidebar - Node Panel */}
@@ -439,7 +662,10 @@ const WorkflowBuilder: React.FC = () => {
         <div className="flex-1 flex flex-col">
           <div ref={reactFlowWrapper} className="flex-1 relative">
             <ReactFlow
-              nodes={nodes}
+              nodes={nodes.map(node => ({
+                ...node,
+                selected: selectedNodes.includes(node.id)
+              }))}
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
@@ -448,10 +674,14 @@ const WorkflowBuilder: React.FC = () => {
               onDrop={onDrop}
               onDragOver={onDragOver}
               onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
               nodeTypes={nodeTypes}
               connectionLineType={ConnectionLineType.SmoothStep}
               fitView
               className="bg-slate-50"
+              multiSelectionKeyCode={null}
+              selectionOnDrag={false}
+              selectNodesOnDrag={false}
             >
               <Controls className="bg-white border shadow-sm" />
               <Background color="#e2e8f0" gap={20} />
@@ -459,7 +689,7 @@ const WorkflowBuilder: React.FC = () => {
               <Panel position="bottom-center" className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-sm border">
                 <div className="text-xs flex items-center gap-2 text-slate-600">
                   <Link className="h-4 w-4" /> 
-                  <span>Connect input to output to create a workflow</span>
+                  <span>{isSelectionMode ? 'Click nodes to select, then create bundles' : 'Connect nodes and create bundles to build workflows'}</span>
                   <span className="inline-flex items-center gap-1">
                     <Zap className="h-3 w-3" />
                     Powered by Toolhouse
@@ -483,6 +713,14 @@ const WorkflowBuilder: React.FC = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const WorkflowBuilder: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <WorkflowBuilderInner />
+    </ReactFlowProvider>
   );
 };
 
